@@ -1,0 +1,14 @@
+<Project>
+  <!-- Divit host: settings shared by all projects. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Company>Divit contributors</Company>
+    <Product>Divit</Product>
+    <Copyright>Copyright (C) 2026 Divit contributors · GPL-3.0-only</Copyright>
+  </PropertyGroup>
+</Project>

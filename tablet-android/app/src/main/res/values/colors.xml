@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Divit colors. Accent: ink blue (a divit is a pen case with an inkwell). -->
+    <color name="accent">#3D6FD8</color>
+    <color name="accent_soft">#1F3D6FD8</color>
+    <color name="ok">#2EA043</color>
+    <color name="wait">#D69E2E</color>
+    <color name="bad">#D1453B</color>
+    <color name="surface_bg">#181A1E</color>
+    <color name="overlay_bg">#B3101114</color>
+    <color name="overlay_text">#E6E9EF</color>
+    <color name="overlay_muted">#9AA1AD</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="card_stroke">#1A000000</color>
+    <color name="page_bg">#F3F4F7</color>
+    <color name="text">#1B1D22</color>
+    <color name="text_muted">#5F6673</color>
+    <color name="launcher_bg">#1F2A44</color>
+</resources>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Divit host: system tray app. Server, sessions, adb bridge, pairing, settings. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <RootNamespace>Divit.Host</RootNamespace>
+    <AssemblyName>Divit</AssemblyName>
+    <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\..\docs\brand\divit.ico</ApplicationIcon>
+    <Version>0.9.1</Version>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+  <!-- WinTab DLLs (built by native/wintab32/build.cmd); the install button copies them from here. -->
+  <PropertyGroup>
+    <WinTabOut>$(MSBuildThisFileDirectory)..\..\native\wintab32\out\</WinTabOut>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(WinTabOut)x64\wintab32.dll" Link="wintab\x64\wintab32.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(WinTabOut)x64\wintab32.dll')" />
+    <None Include="$(WinTabOut)x86\wintab32.dll" Link="wintab\x86\wintab32.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(WinTabOut)x86\wintab32.dll')" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Divit.Platform.Windows\Divit.Platform.Windows.csproj" />
+  </ItemGroup>
+</Project>

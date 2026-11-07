@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Windows-specific: WindowsInkSink (Synthetic Pointer API), WinTab bridge, monitor list. On the hot path. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
+    <RootNamespace>Divit.Platform.Windows</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Divit.Core\Divit.Core.csproj" />
+  </ItemGroup>
+</Project>

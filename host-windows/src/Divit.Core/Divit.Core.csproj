@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform-independent core: PenPipeline (state machine, area mapping, pressure curve), clock sync, latency histogram, server. -->
+  <PropertyGroup>
+    <RootNamespace>Divit.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Divit.Protocol\Divit.Protocol.csproj" />
+  </ItemGroup>
+</Project>

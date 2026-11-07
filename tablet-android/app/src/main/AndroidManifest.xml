@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Wi-Fi low-latency lock -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <application
+        android:name=".DivitApp"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:localeConfig="@xml/locales_config"
+        android:theme="@style/Theme.Divit">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.Divit.Drawing"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Samsung: while the drawing screen is in front, the pen button must not open the Air command panel
+                 (the button goes to the PC). The same tags Samsung Notes uses on its drawing screens. Affects only this screen. -->
+            <meta-data
+                android:name="com.samsung.android.service.aircommand.SEM_DISABLE_AIRCOMMAND"
+                android:value="button_noaction|detach_floating" />
+            <meta-data
+                android:name="com.samsung.android.sdk.spen.BLOCK_DOUBLE_TAP_ACTION"
+                android:value="true" />
+        </activity>
+
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- USB key (SPEC §3.2.1): only the adb shell can send it. The DUMP permission is never granted to ordinary
+             apps, so other apps on the tablet can neither write nor learn the key. -->
+        <receiver
+            android:name=".net.UsbKeyReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

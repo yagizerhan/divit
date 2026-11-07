@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# CI: protocol vectors, Windows host (+ WinTab DLL), Android tablet app. Runs on every push and pull request.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vectors:
+    name: Protocol test vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install cryptography
+      # The committed vectors must be exactly what the reference encoder produces.
+      - run: python -I protocol/test-vectors/generate.py
+      - run: git diff --exit-code -- protocol/test-vectors/vectors.json
+
+  host-windows:
+    name: Windows host
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # The WinTab end-to-end tests load the real DLL; they skip themselves if it is missing, so build it first.
+      - name: Build wintab32.dll (x64 + x86)
+        shell: cmd
+        run: host-windows\native\wintab32\build.cmd
+      - run: dotnet test host-windows/Divit.sln -c Release
+
+  tablet-android:
+    name: Android tablet app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tablet-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+      - run: ./gradlew --no-daemon testDebugUnitTest assembleDebug

@@ -1,0 +1,34 @@
+# Build output
+bin/
+obj/
+build/
+out/
+TestResults/
+*.user
+.vs/
+
+# Gradle / Android Studio
+.gradle/
+.kotlin/
+.idea/
+*.iml
+captures/
+local.properties
+
+# Native WinTab DLL build output (built by native/wintab32/build.cmd and CI)
+host-windows/native/wintab32/out/
+
+# Installer output
+installer/Output/
+installer/staging/
+
+# Release signing: keys and passwords never enter the repository (docs/releasing.md)
+keystore.properties
+*.jks
+*.keystore
+*.pfx
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Protocol (protocol/SPEC.md): framing, messages, allocation-free PenSample read/write, authentication. Platform-independent. -->
+  <PropertyGroup>
+    <RootNamespace>Divit.Protocol</RootNamespace>
+  </PropertyGroup>
+</Project>

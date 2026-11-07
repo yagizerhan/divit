@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DeviceDefault: One UI look on Samsung, no extra library. -->
+    <style name="Theme.Divit" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:windowBackground">@color/page_bg</item>
+        <item name="android:statusBarColor">@color/page_bg</item>
+        <item name="android:navigationBarColor">@color/page_bg</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+    <style name="Theme.Divit.Drawing" parent="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/surface_bg</item>
+    </style>
+    <style name="Divit.Card" parent="">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">20dp</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+    <style name="Divit.Title" parent="">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text</item>
+    </style>
+    <style name="Divit.Body" parent="">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/text_muted</item>
+        <item name="android:lineSpacingMultiplier">1.15</item>
+    </style>
+</resources>

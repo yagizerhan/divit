@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="512" height="512">
+  <!-- Divit icon (C1): a "d" whose stem is a pen nib. Source drawing; Android: res/drawable/ic_launcher_foreground.xml -->
+  <rect width="96" height="96" fill="#1F2A44"/>
+  <g transform="translate(4.75 0)">
+  <circle cx="40" cy="58" r="14" fill="none" stroke="#E6E9EF" stroke-width="9"/>
+  <rect x="54" y="17" width="11" height="9" rx="2" fill="#3D6FD8"/>
+  <polygon points="54,26 65,26 65,66 59.5,79 54,66" fill="#E6E9EF"/>
+  </g>
+</svg>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unit tests. xunit is test-only (Apache-2.0); it never ships in the product. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Divit.Tests</RootNamespace>
+    <!-- The WinTab bridge tests use the Windows-specific project (Platform.Windows). -->
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The localization test uses the host app (WinForms). -->
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- WinForms is referenced only for the host strings; keep its types out of the global usings. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Divit.Protocol\Divit.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Divit.Core\Divit.Core.csproj" />
+    <ProjectReference Include="..\..\src\Divit.Platform.Windows\Divit.Platform.Windows.csproj" />
+    <ProjectReference Include="..\..\src\Divit.Host\Divit.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\protocol\test-vectors\vectors.json" Link="vectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
