@@ -8,6 +8,7 @@ package io.github.yagizerhan.divit.net
 
 import android.os.Process
 import android.os.SystemClock
+import io.github.yagizerhan.divit.capture.PenClock
 import io.github.yagizerhan.divit.capture.SampleRing
 import io.github.yagizerhan.divit.protocol.Auth
 import io.github.yagizerhan.divit.protocol.Decoder
@@ -426,6 +427,6 @@ class TransportClient(
 
     private fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it) }
 
-    // CLOCK_MONOTONIC: the same clock as MotionEvent times (uptimeMillis base).
-    private fun nowUs() = System.nanoTime() / 1000
+    // Same base as the pen samples' MotionEvent times (see PenClock).
+    private fun nowUs() = PenClock.nowUs()
 }

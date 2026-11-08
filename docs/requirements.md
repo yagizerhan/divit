@@ -44,7 +44,7 @@ A stable, low-latency pen experience with a Samsung tablet and its S Pen, **as i
 | IN-04 | Finger touches are ignored; a resting palm draws nothing. |
 | IN-05 | The pen area maps to a chosen monitor; the aspect ratio is kept. |
 | IN-06 | The side button reaches Windows as the pen barrel button. |
-| IN-07 | The side button is assignable: pen button / right click / eraser / keyboard shortcut / off. |
+| IN-07 | The side button is assignable: pen button / right click / eraser / keyboard shortcut / off. A shortcut is held as long as the button is (e.g. Space to pan, Alt to pick a colour). |
 | IN-08 | Adjustable pressure curve (lower/upper threshold + curve). |
 | IN-09 | Only part of the tablet can be used (active area). |
 | IN-10 | Tilt is passed on. |
@@ -106,18 +106,3 @@ Measurements: [research.md](research.md).
 3. Hover moves the cursor; a resting palm draws nothing.
 4. The latency targets above hold.
 5. No disconnect in a 2-hour USB session.
-
-## 7. Compatibility matrix
-
-Test reports are welcome (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
-
-| App | Version | Mode | Pressure | Hover | Side button | Notes |
-|---|---|---|---|---|---|---|
-| Krita | | Windows Ink | | | | |
-| Krita | | WinTab | | | | |
-| Clip Studio Paint | | Tablet PC (Windows Ink) | | | | |
-| Clip Studio Paint | | WinTab | | | | |
-| Photoshop | | Windows Ink | | | | |
-| Blender | | Windows Ink | | | | |
-| Paint Tool SAI | | | | | | |
-| OneNote / Windows Ink apps | | — | | | | Reference |

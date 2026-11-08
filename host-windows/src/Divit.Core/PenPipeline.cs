@@ -37,7 +37,10 @@ public sealed record ButtonSettings(BarrelAction Action = BarrelAction.PenButton
 public interface IButtonActions
 {
     void RightClick();
-    void Shortcut(int keys);
+    /// <summary>Presses the shortcut's keys and keeps them down (side button pressed).</summary>
+    void ShortcutDown(int keys);
+    /// <summary>Releases the keys pressed by <see cref="ShortcutDown"/> (side button released).</summary>
+    void ShortcutUp(int keys);
 }
 
 public sealed record PipelineSettings(AreaMapping Mapping, PressureCurve Curve, ButtonSettings? Button = null)
@@ -52,6 +55,7 @@ public sealed class PenPipeline(IPenSink sink, PipelineSettings settings, IButto
     private int _lastX, _lastY;
     private int _expectedSeq = -1;
     private bool _lastBarrel, _eraserLatched;
+    private int _heldKeys;         // shortcut currently held down by the side button (0 = none)
     private float _nx, _ny, _pf;   // WinTab values carried into Emit (private to the receive thread)
 
     public PenState State => _state;
@@ -105,9 +109,17 @@ public sealed class PenPipeline(IPenSink sink, PipelineSettings settings, IButto
                 if (barrelPressed && !s.InContact) actions?.RightClick();   // while hovering: right click at the cursor
                 break;
             case BarrelAction.Shortcut:
-                if (barrelPressed && st.Buttons.ShortcutKeys != 0) actions?.Shortcut(st.Buttons.ShortcutKeys);
+                // Held as long as the button is: Space (pan), Alt/Ctrl (colour picker), Ctrl+Space (zoom) work while the
+                // pen moves. One-shot shortcuts (Ctrl+Z) still fire once: injected keys do not auto-repeat.
+                if (barrelPressed && _heldKeys == 0 && st.Buttons.ShortcutKeys != 0)
+                {
+                    _heldKeys = st.Buttons.ShortcutKeys;
+                    actions?.ShortcutDown(_heldKeys);
+                }
                 break;
         }
+        // Button released, pen out of range (rawBarrel needs InRange) or the assignment changed: let the keys go.
+        if (_heldKeys != 0 && (!rawBarrel || st.Buttons.Action != BarrelAction.Shortcut)) ReleaseShortcut();
 
         switch (_state)
         {
@@ -138,7 +150,8 @@ public sealed class PenPipeline(IPenSink sink, PipelineSettings settings, IButto
     }
 
     /// <summary>
-    /// Connection lost / shutdown: UP if in contact, then out of range (CN-03). The pen never stays pressed.
+    /// Connection lost / shutdown: UP if in contact, then out of range (CN-03). The pen never stays pressed and a
+    /// shortcut held by the side button is released.
     /// Leave is always sent: the pipeline may think it is out of range while the device (after an error) is still in
     /// contact; the Windows sink turns it into UP + Leave based on the device's real state, or does nothing if the
     /// device is already out of range.
@@ -150,6 +163,15 @@ public sealed class PenPipeline(IPenSink sink, PipelineSettings settings, IButto
         _state = PenState.OutOfRange;
         _expectedSeq = -1;
         _lastBarrel = false;
+        ReleaseShortcut();   // a key never stays held either
+    }
+
+    private void ReleaseShortcut()
+    {
+        int keys = _heldKeys;
+        if (keys == 0) return;
+        _heldKeys = 0;
+        actions?.ShortcutUp(keys);
     }
 
     private bool Emit(PenTransition t, int x, int y, uint p, int tx, int ty, bool barrel, bool eraser)

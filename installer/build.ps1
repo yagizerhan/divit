@@ -3,9 +3,9 @@
 #
 # Builds the Windows installer: WinTab DLLs (x64 + x86) → self-contained app publish → Inno Setup.
 # Requirements: .NET 10 SDK, Visual Studio "Desktop development with C++", Inno Setup 6.
-# Usage (from the repository root):  powershell -ExecutionPolicy Bypass -File installer\build.ps1 [-Version 0.9.1]
+# Usage (from the repository root):  powershell -ExecutionPolicy Bypass -File installer\build.ps1 [-Version 0.9.2]
 
-param([string]$Version = "0.9.1")
+param([string]$Version = "0.9.2")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $staging = Join-Path $PSScriptRoot "staging"

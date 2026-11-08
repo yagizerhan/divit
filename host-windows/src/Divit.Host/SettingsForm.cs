@@ -267,21 +267,38 @@ public sealed class SettingsForm : Form
         _shortcut.BorderStyle = BorderStyle.FixedSingle;
         _shortcut.PlaceholderText = L.T("button.shortcutHint");
         _shortcut.Margin = new Padding(10, 3, 0, 0);
+        // A modifier pressed and released alone (Alt, Ctrl, Shift) is a shortcut too: with the side button it is held,
+        // e.g. Alt or Ctrl for the colour picker. It is recorded on release, so Ctrl+Z still records as Ctrl+Z.
+        Keys loneModifier = Keys.None;
+        void Record(int keys) { _h.Settings.ShortcutKeys = keys; _shortcut.Text = KeyText(keys); _h.Apply(true); }
         _shortcut.KeyDown += (_, e) =>
         {
             e.SuppressKeyPress = true; e.Handled = true;
             var key = e.KeyCode;
-            if (key is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin) return;   // modifier only
-            _h.Settings.ShortcutKeys = (int)e.KeyData;
-            _shortcut.Text = KeyText(_h.Settings.ShortcutKeys);
-            _h.Apply(true);
+            if (key is Keys.ControlKey or Keys.ShiftKey or Keys.Menu) { loneModifier = key; return; }
+            loneModifier = Keys.None;
+            if (key is Keys.LWin or Keys.RWin) return;
+            Record((int)e.KeyData);
+        };
+        _shortcut.KeyUp += (_, e) =>
+        {
+            e.SuppressKeyPress = true; e.Handled = true;   // also keeps Alt from opening the window menu
+            if (e.KeyCode != Keys.None && e.KeyCode == loneModifier) Record((int)loneModifier);
+            loneModifier = Keys.None;
         };
         return Stack(
             (Row(_barrel, _shortcut), SizeType.AutoSize),
             (Wrapping(L.T("button.help")), SizeType.AutoSize));
     }
 
-    private static string KeyText(int keys) => keys == 0 ? "" : new KeysConverter().ConvertToString((Keys)keys) ?? "";
+    private static string KeyText(int keys) => (Keys)keys switch
+    {
+        Keys.None => "",
+        Keys.ControlKey => "Ctrl",
+        Keys.ShiftKey => "Shift",
+        Keys.Menu => "Alt",
+        var k => new KeysConverter().ConvertToString(k) ?? "",
+    };
 
     private Control WinTabBody()
     {

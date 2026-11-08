@@ -178,9 +178,10 @@ public class CoreTests
 
     private sealed class Actions : IButtonActions
     {
-        public int RightClicks; public readonly List<int> Shortcuts = new();
+        public int RightClicks; public readonly List<string> Keys = new();
         public void RightClick() => RightClicks++;
-        public void Shortcut(int keys) => Shortcuts.Add(keys);
+        public void ShortcutDown(int keys) => Keys.Add($"down {keys:X}");
+        public void ShortcutUp(int keys) => Keys.Add($"up {keys:X}");
     }
 
     private static PenPipeline PipeWith(RecordingSink sink, ButtonSettings b, Actions a) =>
@@ -219,12 +220,52 @@ public class CoreTests
     }
 
     [Fact]
-    public void BarrelAsShortcutSendsKeysOnPress()
+    public void BarrelAsShortcutHoldsKeysWhileButtonIsDown()
     {
         const int ctrlZ = 0x20000 | 0x5A;
         var sink = new RecordingSink(); var a = new Actions(); var p = PipeWith(sink, new ButtonSettings(BarrelAction.Shortcut, ctrlZ), a);
-        foreach (var f in new[] { R, RB, RB, R, CB }) p.Process(S(f), 0, null);
-        Assert.Equal(new[] { ctrlZ, ctrlZ }, a.Shortcuts);
+        foreach (var f in new[] { R, RB, RB, CB, CB, RB }) p.Process(S(f), 0, null);
+        Assert.Equal(new[] { "down 2005A" }, a.Keys);          // held through hover and a stroke
+        p.Process(S(R), 0, null);
+        p.Process(S(CB), 0, null);                              // pressed again while touching
+        Assert.Equal(new[] { "down 2005A", "up 2005A", "down 2005A" }, a.Keys);
+        Assert.All(sink.Out, o => Assert.False(o.Barrel));
+    }
+
+    [Fact]
+    public void HeldShortcutIsReleasedWhenPenLeavesRange()
+    {
+        const int space = 0x20;
+        var a = new Actions(); var p = PipeWith(new RecordingSink(), new ButtonSettings(BarrelAction.Shortcut, space), a);
+        p.Process(S(RB), 0, null);
+        p.Process(S(PenFlags.Barrel), 0, null);                 // out of range with the button still down
+        Assert.Equal(new[] { "down 20", "up 20" }, a.Keys);
+    }
+
+    [Fact]
+    public void HeldShortcutIsReleasedOnDisconnect()
+    {
+        const int space = 0x20;
+        var a = new Actions(); var p = PipeWith(new RecordingSink(), new ButtonSettings(BarrelAction.Shortcut, space), a);
+        p.Process(S(CB), 0, null);
+        p.ReleaseAll();
+        p.ReleaseAll();                                         // only once
+        Assert.Equal(new[] { "down 20", "up 20" }, a.Keys);
+    }
+
+    [Fact]
+    public void HeldShortcutIsReleasedWithTheKeysItPressed()
+    {
+        const int space = 0x20, alt = 0x12;
+        var a = new Actions(); var p = PipeWith(new RecordingSink(), new ButtonSettings(BarrelAction.Shortcut, space), a);
+        p.Process(S(RB), 0, null);
+        p.UpdateSettings(p.Settings with { Button = new ButtonSettings(BarrelAction.Shortcut, alt) });
+        p.Process(S(R), 0, null);
+        p.UpdateSettings(p.Settings with { Button = new ButtonSettings(BarrelAction.Shortcut, space) });
+        p.Process(S(RB), 0, null);
+        p.UpdateSettings(p.Settings with { Button = new ButtonSettings(BarrelAction.PenButton) });   // assignment changed mid-hold
+        p.Process(S(RB), 0, null);
+        Assert.Equal(new[] { "down 20", "up 20", "down 20", "up 20" }, a.Keys);
     }
 
     [Fact]

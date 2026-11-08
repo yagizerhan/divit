@@ -22,6 +22,7 @@ public sealed class TrayApp : ApplicationContext, IHostControl
     private readonly WinTabSink? _wintab = TryWinTab();
     public WinTabSink? WinTab => _wintab;
     private readonly PenServer _server;
+    private readonly InputSender _keys = new();
     private readonly AdbBridge _adb;
     private readonly NotifyIcon _tray;
     private readonly System.Windows.Forms.Timer _uiTimer;
@@ -36,7 +37,7 @@ public sealed class TrayApp : ApplicationContext, IHostControl
         _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         _monitor = Monitors.Find(_settings.MonitorDevice);
         IPenSink output = _wintab != null ? new CompositeSink(_sink, _wintab) : _sink;
-        _server = new PenServer(output, _pairing, PipelineFactory(), HostIdentity.LoadOrCreate(), _settings.PairingCode) { Actions = new InputSender() };
+        _server = new PenServer(output, _pairing, PipelineFactory(), HostIdentity.LoadOrCreate(), _settings.PairingCode) { Actions = _keys };
         _server.PairingCodeChanged += code => _ui.Post(_ => { _settings.PairingCode = code; _settings.Save(); }, null);
         if (_settings.PairingCode != _server.PairingCode) { _settings.PairingCode = _server.PairingCode; _settings.Save(); }   // first run: keep the new code
         _server.SurfaceChanged += (w, h) =>
@@ -342,6 +343,7 @@ public sealed class TrayApp : ApplicationContext, IHostControl
         _tray.Visible = false;
         _form?.Dispose();
         _server.Dispose();
+        _keys.ReleaseHeld();   // a shortcut held by the side button must not stay down after exit
         _adb.Dispose();
         _sink.Dispose();
         _wintab?.Dispose();

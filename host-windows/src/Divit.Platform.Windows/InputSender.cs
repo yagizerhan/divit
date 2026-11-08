@@ -42,21 +42,48 @@ public sealed class InputSender : IButtonActions
         Send(i, "right click");
     }
 
-    public void Shortcut(int keys)
-    {
-        ushort vk = (ushort)(keys & 0xFFFF);
-        if (vk == 0) return;
-        var mods = new List<ushort>();
-        if ((keys & CtrlFlag) != 0) mods.Add(VK_CONTROL);
-        if ((keys & ShiftFlag) != 0) mods.Add(VK_SHIFT);
-        if ((keys & AltFlag) != 0) mods.Add(VK_MENU);
+    private int _held;   // keys currently held down (0 = none); the receive thread and the UI thread (exit) both touch it
 
-        var list = new List<INPUT>();
-        foreach (var m in mods) list.Add(Key(m, up: false));
-        list.Add(Key(vk, up: false));
-        list.Add(Key(vk, up: true));
-        for (int k = mods.Count - 1; k >= 0; k--) list.Add(Key(mods[k], up: true));
-        Send(list.ToArray(), $"shortcut 0x{keys:X}");
+    /// <summary>Modifiers down, then the key; they stay down until <see cref="ShortcutUp"/>.</summary>
+    public void ShortcutDown(int keys)
+    {
+        var order = Order(keys);
+        if (order.Count == 0) return;
+        int prev = Interlocked.Exchange(ref _held, keys);
+        if (prev != 0) Up(prev);   // never leave an earlier shortcut down
+        Send(order.Select(vk => Key(vk, up: false)).ToArray(), $"shortcut 0x{keys:X} down");
+    }
+
+    public void ShortcutUp(int keys)
+    {
+        if (Interlocked.CompareExchange(ref _held, 0, keys) == keys) Up(keys);
+    }
+
+    /// <summary>Program exit: lets go of a shortcut that is still held, so no key stays stuck in Windows.</summary>
+    public void ReleaseHeld()
+    {
+        int keys = Interlocked.Exchange(ref _held, 0);
+        if (keys != 0) Up(keys);
+    }
+
+    private void Up(int keys)
+    {
+        var order = Order(keys);
+        order.Reverse();   // the key first, then the modifiers
+        Send(order.Select(vk => Key(vk, up: true)).ToArray(), $"shortcut 0x{keys:X} up");
+    }
+
+    /// <summary>Press order: Ctrl, Shift, Alt, then the key. A modifier alone (Alt, Ctrl, Shift) is not doubled.</summary>
+    private static List<ushort> Order(int keys)
+    {
+        var list = new List<ushort>();
+        ushort vk = (ushort)(keys & 0xFFFF);
+        if (vk == 0) return list;
+        if ((keys & CtrlFlag) != 0 && vk != VK_CONTROL) list.Add(VK_CONTROL);
+        if ((keys & ShiftFlag) != 0 && vk != VK_SHIFT) list.Add(VK_SHIFT);
+        if ((keys & AltFlag) != 0 && vk != VK_MENU) list.Add(VK_MENU);
+        list.Add(vk);
+        return list;
     }
 
     private static INPUT Key(ushort vk, bool up)

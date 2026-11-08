@@ -15,6 +15,17 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.tan
 
+/**
+ * The tablet's one clock for the protocol (SPEC §3.4): pen sample times and PING/PONG times must share a base, or
+ * the PC's clock offset and latency figures are wrong. MotionEvent times are on the uptime base (CLOCK_MONOTONIC,
+ * stops in deep sleep), so this reads the same base: `SystemClock.uptimeNanos()` from Android 15, before that
+ * `System.nanoTime()`, which Android also reads from CLOCK_MONOTONIC (uptimeMillis would lose sub-ms precision).
+ */
+object PenClock {
+    fun nowUs(): Long =
+        if (android.os.Build.VERSION.SDK_INT >= 35) android.os.SystemClock.uptimeNanos() / 1000 else System.nanoTime() / 1000
+}
+
 /** Single-producer / single-consumer ring buffer. When full the new sample is dropped and counted (real time: we never wait). */
 class SampleRing(capacityPow2: Int = 1024) {
     private val mask = capacityPow2 - 1
@@ -55,8 +66,8 @@ class SampleRing(capacityPow2: Int = 1024) {
 }
 
 /**
- * MotionEvent → normalized samples (SPEC §3.6). Clock: MotionEvent times use the `SystemClock.uptimeNanos` base;
- * PING/PONG use the same clock.
+ * MotionEvent → normalized samples (SPEC §3.6). Clock: MotionEvent times use the uptime base, the same as
+ * [PenClock], which PING/PONG use.
  */
 class PenNormalizer(private val ring: SampleRing) {
     var width = 1f
