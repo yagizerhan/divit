@@ -33,8 +33,9 @@ public sealed unsafe class WindowsInkSink : PenDeviceSink
         RefreshDisplayLayout();
     }
 
+    // INDIRECT rather than DEFAULT: DEFAULT lets Windows' own pen settings suppress the ring, so it showed only sometimes.
     private static IntPtr Create(bool tapFeedback) =>
-        CreateSyntheticPointerDevice(PT_PEN, 1, tapFeedback ? POINTER_FEEDBACK_DEFAULT : POINTER_FEEDBACK_NONE);
+        CreateSyntheticPointerDevice(PT_PEN, 1, tapFeedback ? POINTER_FEEDBACK_INDIRECT : POINTER_FEEDBACK_NONE);
 
     /// <summary>
     /// Turns Windows' tap ring on or off. The mode is fixed when the device is created, so the device is recreated —

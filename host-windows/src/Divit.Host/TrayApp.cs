@@ -291,12 +291,10 @@ public sealed class TrayApp : ApplicationContext, IHostControl
         m.Items.Add(exit);
     }
 
-    /// <summary>Turns the Wi-Fi listener on/off. Shows a warning when turning on; false if the user cancels.</summary>
+    /// <summary>Turns the Wi-Fi listener on/off.</summary>
     public bool SetWifi(bool on)
     {
         if (on == _settings.WifiEnabled) return true;
-        if (on && MessageBox.Show(L.T("wifi.warn"), L.T("wifi.warn.title"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
-            return false;
         _settings.WifiEnabled = on;
         _settings.Save();
         try { _server.Start(_settings.Port, _settings.WifiEnabled); }

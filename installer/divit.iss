@@ -153,8 +153,23 @@ begin
     Exec(Adb, 'kill-server', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
+{ Inbound firewall rule for Divit.exe, so Wi-Fi works without Windows' "allow access" prompt. Rules for the same
+  program are removed first: cancelling that prompt leaves a Block rule that silently stops Wi-Fi discovery. }
+procedure Netsh(Params: String);
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}
+etsh.exe'), 'advfirewall firewall ' + Params, '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssPostInstall then
+  begin
+    Netsh('delete rule name=all program="' + ExpandConstant('{app}\{#AppExe}') + '"');
+    Netsh('add rule name="Divit" dir=in action=allow program="' + ExpandConstant('{app}\{#AppExe}') + '" enable=yes profile=any');
+  end;
   if (CurStep = ssPostInstall) and WizardIsTaskSelected('wintab') and
      (not WinTabFree(ExpandConstant('{sys}\wintab32.dll')) or not WinTabFree(ExpandConstant('{syswow64}\wintab32.dll'))) then
   begin
@@ -167,5 +182,8 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   { Remove the per-user autostart value if the settings window created it. }
   if CurUninstallStep = usUninstall then
+  begin
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Divit');
+    Netsh('delete rule name=all program="' + ExpandConstant('{app}\{#AppExe}') + '"');
+  end;
 end;

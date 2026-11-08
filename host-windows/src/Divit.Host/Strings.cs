@@ -73,10 +73,6 @@ public static class L
         ["menu.exit"] = "Exit",
 
         // Dialogs
-        ["wifi.warn.title"] = "Divit — Wi-Fi",
-        ["wifi.warn"] = "With Wi-Fi on, Divit accepts connections from the local network. On first connection the tablet asks for the 6-digit code shown here.\n\n" +
-                        "Note: in this version pen data on Wi-Fi is not encrypted (connections are authenticated). Use it only on networks you trust.\n\n" +
-                        "If Windows Firewall asks, allow \"Private networks\" only.",
         ["port.error"] = "Divit could not open port {0}:\n{1}\n\nAnother copy of Divit may be running.",
 
         // Settings window
@@ -186,10 +182,6 @@ public static class L
         ["menu.openLog"] = "Log dosyasını aç",
         ["menu.exit"] = "Çıkış",
 
-        ["wifi.warn.title"] = "Divit — Wi-Fi",
-        ["wifi.warn"] = "Wi-Fi açılınca Divit yerel ağdan bağlantı kabul eder. Tablet ilk bağlantıda burada gösterilen 6 haneli kodu ister.\n\n" +
-                        "Not: Bu sürümde Wi-Fi'de kalem verisi şifrelenmez (bağlantıların kimliği doğrulanır). Yalnızca güvendiğiniz ağlarda kullanın.\n\n" +
-                        "Windows Güvenlik Duvarı izin isterse yalnızca \"Özel ağlar\"ı seçin.",
         ["port.error"] = "Divit {0} numaralı portu açamadı:\n{1}\n\nBaşka bir Divit açık olabilir.",
 
         ["card.screen"] = "Ekran",

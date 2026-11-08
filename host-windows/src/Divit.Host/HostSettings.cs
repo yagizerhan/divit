@@ -28,7 +28,8 @@ public sealed class HostSettings
     public ButtonSettings Buttons => new(Enum.TryParse<BarrelAction>(BarrelAction, out var a) ? a : Core.BarrelAction.PenButton, ShortcutKeys);
     [System.Text.Json.Serialization.JsonIgnore]
     public NormRect ActiveArea => new(AreaLeft, AreaTop, AreaRight, AreaBottom);
-    public bool WifiEnabled { get; set; }
+    /// <summary>Accept tablets over the local network (pairing code). On by default.</summary>
+    public bool WifiEnabled { get; set; } = true;
     /// <summary>Windows' ring/ripple where the pen touches the screen. Off by default, like tablet drivers.</summary>
     public bool TapFeedback { get; set; }
     /// <summary>Dark (default) / Light / System.</summary>
