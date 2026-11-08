@@ -208,6 +208,10 @@ public sealed class SettingsForm : Form
         _keepAspect.AutoSize = true;
         _keepAspect.Text = L.T("screen.keepAspect");
         _keepAspect.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.KeepAspect = _keepAspect.Checked; _h.Apply(true); _area.Invalidate(); };
+        _tapRing.AutoSize = true;
+        _tapRing.Text = L.T("screen.tapRing");
+        _tapRing.Margin = new Padding(3, 4, 3, 4);
+        _tapRing.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.TapFeedback = _tapRing.Checked; _h.Apply(true); };
         _area.MinimumSize = new Size(200, 120);
         _area.Changed += save => _h.Apply(save);
         var reset = FlatButton(L.T("screen.useAll"));
@@ -217,6 +221,7 @@ public sealed class SettingsForm : Form
             (Text_(L.T("screen.mapsTo")), SizeType.AutoSize),
             (_monitor, SizeType.AutoSize),
             (Row(_keepAspect, reset), SizeType.AutoSize),
+            (_tapRing, SizeType.AutoSize),
             (_area, SizeType.Percent));
     }
 
@@ -286,14 +291,9 @@ public sealed class SettingsForm : Form
             if (e.KeyCode != Keys.None && e.KeyCode == loneModifier) Record((int)loneModifier);
             loneModifier = Keys.None;
         };
-        _tapRing.AutoSize = true;
-        _tapRing.Text = L.T("button.tapRing");
-        _tapRing.Margin = new Padding(3, 10, 3, 0);
-        _tapRing.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.TapFeedback = _tapRing.Checked; _h.Apply(true); };
         return Stack(
             (Row(_barrel, _shortcut), SizeType.AutoSize),
-            (Wrapping(L.T("button.help")), SizeType.AutoSize),
-            (_tapRing, SizeType.AutoSize));
+            (Wrapping(L.T("button.help")), SizeType.AutoSize));
     }
 
     private static string KeyText(int keys) => (Keys)keys switch
