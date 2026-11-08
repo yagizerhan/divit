@@ -159,8 +159,7 @@ procedure Netsh(Params: String);
 var
   Code: Integer;
 begin
-  Exec(ExpandConstant('{sys}
-etsh.exe'), 'advfirewall firewall ' + Params, '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\netsh.exe'), 'advfirewall firewall ' + Params, '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
