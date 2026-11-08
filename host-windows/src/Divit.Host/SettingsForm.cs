@@ -104,9 +104,11 @@ public sealed class SettingsForm : Form
 
         LoadValues();
         _timer.Tick += (_, _) => Tick();
-        // No live redraws (pressure dot, status) while the user drags the window edge.
-        ResizeBegin += (_, _) => _timer.Stop();
-        ResizeEnd += (_, _) => { if (Visible) _timer.Start(); };
+        // While the user drags the window edge: no live redraws (pressure dot, status) and no layout. The nested
+        // auto-size tables re-measured every card and wrapped label on each mouse move, which made dragging stutter;
+        // now the window is laid out once, when the drag ends.
+        ResizeBegin += (_, _) => { _timer.Stop(); grid.SuspendLayout(); };
+        ResizeEnd += (_, _) => { grid.ResumeLayout(true); if (Visible) _timer.Start(); };
         VisibleChanged += (_, _) => { if (Visible) { LoadValues(); _timer.Start(); } else _timer.Stop(); };
         Shown += (_, _) => ActiveControl = null;   // no control should look selected on open
         // Close = hide; Divit keeps running in the tray.
