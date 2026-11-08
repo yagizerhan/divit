@@ -29,6 +29,8 @@ public sealed class HostSettings
     [System.Text.Json.Serialization.JsonIgnore]
     public NormRect ActiveArea => new(AreaLeft, AreaTop, AreaRight, AreaBottom);
     public bool WifiEnabled { get; set; }
+    /// <summary>Windows' ring/ripple where the pen touches the screen. Off by default, like tablet drivers.</summary>
+    public bool TapFeedback { get; set; }
     /// <summary>Dark (default) / Light / System.</summary>
     public string Theme { get; set; } = "Dark";
     /// <summary>UI language: System (Windows display language) / en / tr.</summary>

@@ -45,7 +45,7 @@ public sealed class SettingsForm : Form
     private readonly Label _wtStatus = new();
     private WinTabState _wtState;
     private readonly Button _wtButton = new();
-    private readonly CheckBox _keepAspect = new(), _wifi = new(), _autostart = new();
+    private readonly CheckBox _keepAspect = new(), _wifi = new(), _autostart = new(), _tapRing = new();
     private readonly AreaPreview _area;
     private readonly CurveEditor _curve;
     private readonly Label _curveValues = new(), _addresses = new(), _paired = new(), _codeLbl = new();
@@ -286,9 +286,14 @@ public sealed class SettingsForm : Form
             if (e.KeyCode != Keys.None && e.KeyCode == loneModifier) Record((int)loneModifier);
             loneModifier = Keys.None;
         };
+        _tapRing.AutoSize = true;
+        _tapRing.Text = L.T("button.tapRing");
+        _tapRing.Margin = new Padding(3, 10, 3, 0);
+        _tapRing.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.TapFeedback = _tapRing.Checked; _h.Apply(true); };
         return Stack(
             (Row(_barrel, _shortcut), SizeType.AutoSize),
-            (Wrapping(L.T("button.help")), SizeType.AutoSize));
+            (Wrapping(L.T("button.help")), SizeType.AutoSize),
+            (_tapRing, SizeType.AutoSize));
     }
 
     private static string KeyText(int keys) => (Keys)keys switch
@@ -439,6 +444,7 @@ public sealed class SettingsForm : Form
             if (m.DeviceName == _h.Monitor.DeviceName) _monitor.SelectedItem = m;
         }
         _keepAspect.Checked = s.KeepAspect;
+        _tapRing.Checked = s.TapFeedback;
         _wifi.Checked = s.WifiEnabled;
         bool w = s.WifiEnabled;
         _addresses.Visible = _code.Visible = _newCode.Visible = _codeLbl.Visible = w;

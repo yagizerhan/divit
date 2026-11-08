@@ -106,7 +106,10 @@ public static class L
         ["button.off"] = "Off",
         ["button.shortcutHint"] = "Click, then press keys",
         ["button.help"] = "Eraser: touching the screen with the side button held acts as the eraser (Krita / CSP support the eraser tip). " +
-                          "Right click: press the button while the pen hovers.",
+                          "Right click: press the button while the pen hovers. " +
+                          "Keyboard shortcut: the keys stay held while the button is (e.g. Space to pan, Alt to pick a colour).",
+        ["button.tapRing"] = "Show Windows' ring where the pen touches",
+
         ["wintab.help"] = "Pen pressure reaches Windows apps in two ways: Windows Ink (built into Windows, nothing to install) and WinTab " +
                           "(the older standard; some drawing apps use it by default, 4096 pressure levels). " +
                           "WinTab is a file apps look for in the Windows folder (wintab32.dll); putting it there needs administrator " +
@@ -217,7 +220,10 @@ public static class L
         ["button.off"] = "Kapalı",
         ["button.shortcutHint"] = "Tıklayın, tuşlara basın",
         ["button.help"] = "Silgi: kalem düğmesi basılıyken ekrana değince silgi olarak gider (Krita / CSP silgi ucunu destekler). " +
-                          "Sağ tık: kalem havadayken düğmeye basın.",
+                          "Sağ tık: kalem havadayken düğmeye basın. " +
+                          "Klavye kısayolu: düğme basılı kaldıkça tuşlar da basılı kalır (ör. kaydırmak için Space, renk seçmek için Alt).",
+        ["button.tapRing"] = "Kalemin değdiği yerde Windows'un halkasını göster",
+
         ["wintab.help"] = "Windows'ta kalem basıncı iki yoldan gelir: Windows Ink (Windows'un içinde, kurulum gerekmez) ve WinTab " +
                           "(eski standart; bazı çizim uygulamaları varsayılan olarak bunu kullanır, 4096 basınç seviyesi). " +
                           "WinTab, uygulamaların Windows klasöründe aradığı bir dosyadır (wintab32.dll); oraya koymak bir kerelik " +

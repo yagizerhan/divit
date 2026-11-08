@@ -15,18 +15,47 @@ namespace Divit.Platform.Windows;
 /// </summary>
 public sealed unsafe class WindowsInkSink : PenDeviceSink
 {
-    private readonly IntPtr _device;
+    private IntPtr _device;                // touched only by the injecting thread (and Dispose at exit)
+    private bool _tapFeedback;             // feedback mode _device was created with
+    private volatile bool _wantTapFeedback;
     private int _vsLeft, _vsTop;
     private int _failuresLogged, _repairsLogged;
 
     public int LastError { get; private set; }
 
-    public WindowsInkSink()
+    /// <param name="tapFeedback">Windows' own touch ring/ripple where the pen touches (Windows' "visual effects").</param>
+    public WindowsInkSink(bool tapFeedback = false)
     {
-        _device = CreateSyntheticPointerDevice(PT_PEN, 1, POINTER_FEEDBACK_DEFAULT);
+        _device = Create(tapFeedback);
         if (_device == IntPtr.Zero)
             throw new InvalidOperationException($"CreateSyntheticPointerDevice failed (error {Marshal.GetLastWin32Error()})");
+        _tapFeedback = _wantTapFeedback = tapFeedback;
         RefreshDisplayLayout();
+    }
+
+    private static IntPtr Create(bool tapFeedback) =>
+        CreateSyntheticPointerDevice(PT_PEN, 1, tapFeedback ? POINTER_FEEDBACK_DEFAULT : POINTER_FEEDBACK_NONE);
+
+    /// <summary>
+    /// Turns Windows' tap ring on or off. The mode is fixed when the device is created, so the device is recreated —
+    /// on the injecting thread, the next time the pen comes into range (a fresh device starts out of range too).
+    /// </summary>
+    public void SetTapFeedback(bool on) => _wantTapFeedback = on;
+
+    private void SwapDevice(bool on)
+    {
+        var fresh = Create(on);
+        if (fresh == IntPtr.Zero)
+        {
+            Log.Info($"tap feedback change failed (error {Marshal.GetLastWin32Error()}); keeping the current pen device");
+            _wantTapFeedback = _tapFeedback;
+            return;
+        }
+        var old = _device;
+        _device = fresh;
+        _tapFeedback = on;
+        DestroySyntheticPointerDevice(old);
+        Log.Info($"tap feedback {(on ? "on" : "off")}");
     }
 
     /// <summary>
@@ -47,6 +76,8 @@ public sealed unsafe class WindowsInkSink : PenDeviceSink
 
     protected override bool Inject(in PenOutput o, PenTransition t)
     {
+        bool want = _wantTapFeedback;
+        if (want != _tapFeedback && t == PenTransition.Hover && DeviceState == PenState.OutOfRange) SwapDevice(want);   // rare
         // S1: the "Full" flag set closest to real pens — PRIMARY | CONFIDENCE, FIRSTBUTTON while in contact.
         uint flags = POINTER_FLAG_PRIMARY | POINTER_FLAG_CONFIDENCE | t switch
         {
