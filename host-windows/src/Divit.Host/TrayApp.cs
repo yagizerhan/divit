@@ -18,7 +18,7 @@ public sealed class TrayApp : ApplicationContext, IHostControl
     private SettingsForm? _form;
     private readonly HostSettings _settings = HostSettings.Load();
     private readonly PairingStore _pairing = new();
-    private readonly WindowsInkSink _sink;
+    private readonly WindowsInkSink _sink = new();
     private readonly WinTabSink? _wintab = TryWinTab();
     public WinTabSink? WinTab => _wintab;
     private readonly PenServer _server;
@@ -34,7 +34,6 @@ public sealed class TrayApp : ApplicationContext, IHostControl
     public TrayApp(bool showWindow)
     {
         L.Use(_settings.Language);
-        _sink = new WindowsInkSink(_settings.TapFeedback);
         _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         _monitor = Monitors.Find(_settings.MonitorDevice);
         IPenSink output = _wintab != null ? new CompositeSink(_sink, _wintab) : _sink;
@@ -135,7 +134,6 @@ public sealed class TrayApp : ApplicationContext, IHostControl
     public void Apply(bool save)
     {
         if (save) _settings.Save();
-        _sink.SetTapFeedback(_settings.TapFeedback);
         _wintab?.SetTarget(_monitor.Bounds);
         _server.ApplySettings(PipelineFactory(), _monitor.DeviceName);
         Refresh();

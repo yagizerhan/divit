@@ -45,7 +45,7 @@ public sealed class SettingsForm : Form
     private readonly Label _wtStatus = new();
     private WinTabState _wtState;
     private readonly Button _wtButton = new();
-    private readonly CheckBox _keepAspect = new(), _wifi = new(), _autostart = new(), _tapRing = new();
+    private readonly CheckBox _keepAspect = new(), _wifi = new(), _autostart = new();
     private readonly AreaPreview _area;
     private readonly CurveEditor _curve;
     private readonly Label _curveValues = new(), _addresses = new(), _paired = new(), _codeLbl = new();
@@ -104,10 +104,22 @@ public sealed class SettingsForm : Form
 
         LoadValues();
         _timer.Tick += (_, _) => Tick();
+        // No live redraws (pressure dot, status) while the user drags the window edge.
+        ResizeBegin += (_, _) => _timer.Stop();
+        ResizeEnd += (_, _) => { if (Visible) _timer.Start(); };
         VisibleChanged += (_, _) => { if (Visible) { LoadValues(); _timer.Start(); } else _timer.Stop(); };
         Shown += (_, _) => ActiveControl = null;   // no control should look selected on open
         // Close = hide; Divit keeps running in the tray.
         FormClosing += (_, e) => { if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); } };
+    }
+
+    /// <summary>
+    /// WS_EX_COMPOSITED: Windows paints the whole window into one buffer. Without it every card, label and the area
+    /// preview repainted one by one while resizing, which flickered and showed half-laid-out sizes.
+    /// </summary>
+    protected override CreateParams CreateParams
+    {
+        get { var cp = base.CreateParams; cp.ExStyle |= 0x02000000; return cp; }
     }
 
     // ---- Layout helpers ----
@@ -115,7 +127,7 @@ public sealed class SettingsForm : Form
     /// <summary>Vertical stack: each row is (control, size type). Percent rows share the remaining space.</summary>
     private static TableLayoutPanel Stack(params (Control c, SizeType t)[] rows)
     {
-        var t = new TableLayoutPanel { ColumnCount = 1, RowCount = rows.Length, BackColor = Color.Transparent, Margin = Padding.Empty, Padding = Padding.Empty };
+        var t = new TableLayoutPanel { ColumnCount = 1, RowCount = rows.Length, BackColor = Theme.Card, Margin = Padding.Empty, Padding = Padding.Empty };
         t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         for (int i = 0; i < rows.Length; i++)
         {
@@ -129,7 +141,7 @@ public sealed class SettingsForm : Form
 
     private static FlowLayoutPanel Row(params Control[] items)
     {
-        var f = new FlowLayoutPanel { AutoSize = true, WrapContents = false, BackColor = Color.Transparent, Margin = new Padding(0, 2, 0, 2) };
+        var f = new FlowLayoutPanel { AutoSize = true, WrapContents = false, BackColor = Theme.Card, Margin = new Padding(0, 2, 0, 2) };
         f.Controls.AddRange(items);
         return f;
     }
@@ -144,7 +156,13 @@ public sealed class SettingsForm : Form
         l.ParentChanged += (_, _) =>
         {
             if (l.Parent == null) return;
-            void Fit() => l.MaximumSize = new Size(Math.Max(100, l.Parent!.ClientSize.Width - 4), 0);
+            // Only on a real width change: setting MaximumSize relayouts the label and its parents, and doing that on
+            // every Resize (heights change too) fed back into the layout and made resizing stutter.
+            void Fit()
+            {
+                int w = Math.Max(100, l.Parent!.ClientSize.Width - 4);
+                if (l.MaximumSize.Width != w) l.MaximumSize = new Size(w, 0);
+            }
             l.Parent.Resize += (_, _) => Fit();
             Fit();
         };
@@ -208,10 +226,6 @@ public sealed class SettingsForm : Form
         _keepAspect.AutoSize = true;
         _keepAspect.Text = L.T("screen.keepAspect");
         _keepAspect.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.KeepAspect = _keepAspect.Checked; _h.Apply(true); _area.Invalidate(); };
-        _tapRing.AutoSize = true;
-        _tapRing.Text = L.T("screen.tapRing");
-        _tapRing.Margin = new Padding(3, 4, 3, 4);
-        _tapRing.CheckedChanged += (_, _) => { if (_loading) return; _h.Settings.TapFeedback = _tapRing.Checked; _h.Apply(true); };
         _area.MinimumSize = new Size(200, 120);
         _area.Changed += save => _h.Apply(save);
         var reset = FlatButton(L.T("screen.useAll"));
@@ -221,7 +235,6 @@ public sealed class SettingsForm : Form
             (Text_(L.T("screen.mapsTo")), SizeType.AutoSize),
             (_monitor, SizeType.AutoSize),
             (Row(_keepAspect, reset), SizeType.AutoSize),
-            (_tapRing, SizeType.AutoSize),
             (_area, SizeType.Percent));
     }
 
@@ -444,7 +457,6 @@ public sealed class SettingsForm : Form
             if (m.DeviceName == _h.Monitor.DeviceName) _monitor.SelectedItem = m;
         }
         _keepAspect.Checked = s.KeepAspect;
-        _tapRing.Checked = s.TapFeedback;
         _wifi.Checked = s.WifiEnabled;
         bool w = s.WifiEnabled;
         _addresses.Visible = _code.Visible = _newCode.Visible = _codeLbl.Visible = w;

@@ -104,7 +104,6 @@ public static class L
         ["button.help"] = "Eraser: touching the screen with the side button held acts as the eraser (Krita / CSP support the eraser tip). " +
                           "Right click: press the button while the pen hovers. " +
                           "Shortcut: held while the button is (e.g. Space to pan).",
-        ["screen.tapRing"] = "Show Windows' ring where the pen touches",
 
         ["wintab.help"] = "Some drawing apps read pressure through WinTab (4096 levels) instead of Windows Ink. Installing copies " +
                           "wintab32.dll into the Windows folder once (administrator). Another driver's file (e.g. Wacom) is never touched.",
@@ -212,7 +211,6 @@ public static class L
         ["button.help"] = "Silgi: kalem düğmesi basılıyken ekrana değince silgi olarak gider (Krita / CSP silgi ucunu destekler). " +
                           "Sağ tık: kalem havadayken düğmeye basın. " +
                           "Kısayol: düğme basılıyken basılı kalır (ör. kaydırmak için Space).",
-        ["screen.tapRing"] = "Kalemin değdiği yerde Windows'un halkasını göster",
 
         ["wintab.help"] = "Bazı çizim uygulamaları basıncı Windows Ink yerine WinTab'dan okur (4096 seviye). Kurulum, wintab32.dll'yi " +
                           "bir kerelik Windows klasörüne kopyalar (yönetici izni). Başka bir sürücünün dosyasına (ör. Wacom) dokunulmaz.",

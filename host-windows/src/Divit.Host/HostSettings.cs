@@ -30,8 +30,6 @@ public sealed class HostSettings
     public NormRect ActiveArea => new(AreaLeft, AreaTop, AreaRight, AreaBottom);
     /// <summary>Accept tablets over the local network (pairing code). On by default.</summary>
     public bool WifiEnabled { get; set; } = true;
-    /// <summary>Windows' ring/ripple where the pen touches the screen. Off by default, like tablet drivers.</summary>
-    public bool TapFeedback { get; set; }
     /// <summary>Dark (default) / Light / System.</summary>
     public string Theme { get; set; } = "Dark";
     /// <summary>UI language: System (Windows display language) / en / tr.</summary>

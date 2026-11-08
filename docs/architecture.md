@@ -138,7 +138,6 @@ The pipeline state is the last transition the sink **accepted**; a failed inject
 
 - The pressure curve is applied on the host: `p' = clamp((p − pMin)/(pMax − pMin))^γ` → `round(p'·1024)` for Windows Ink (at least 1 in contact), full float resolution for WinTab. Presets: soft, linear, hard.
 - Side button: *pen button* (Windows barrel, default) · *right click* (while hovering) · *eraser* (Windows eraser flag; latched at the start of contact) · *keyboard shortcut* (sent with `SendInput`; the keys go down with the button and up when it is released, the pen leaves range or the connection ends; a lone Alt, Ctrl or Shift can be assigned) · *off*.
-- Windows' tap ring (pen visual feedback) is off by default (`POINTER_FEEDBACK_NONE`) and can be turned on in the settings; the pen device is recreated the next time the pen comes into range.
 
 ## 5. Transport
 

@@ -9,7 +9,7 @@ namespace Divit.Platform.Windows;
 internal static unsafe class Native
 {
     public const uint PT_PEN = 3;
-    public const int POINTER_FEEDBACK_DEFAULT = 1, POINTER_FEEDBACK_INDIRECT = 2, POINTER_FEEDBACK_NONE = 3;
+    public const int POINTER_FEEDBACK_DEFAULT = 1;
 
     public const uint POINTER_FLAG_INRANGE = 0x00000002;
     public const uint POINTER_FLAG_INCONTACT = 0x00000004;
