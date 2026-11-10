@@ -8,6 +8,10 @@ Use your **Samsung Galaxy Tab and S Pen as a pressure-sensitive graphics tablet 
 
 ## See it in action
 
+
+https://github.com/user-attachments/assets/c7612f8c-8e01-46a6-bbe4-b27897d975e3
+
+
 <!-- Demo video: open this file in the GitHub web editor and drag divit-v6.mp4 onto the empty line below; GitHub uploads it and shows a player. -->
 
 <p align="center">
