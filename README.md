@@ -1,6 +1,18 @@
 # Divit
 
+<p align="center">
+  <img src="docs/media/divit-banner.png" alt="Divit: a Galaxy Tab and S Pen beside a Windows monitor showing a pen drawing" width="100%">
+</p>
+
 Use your **Samsung Galaxy Tab and S Pen as a pressure-sensitive graphics tablet for your Windows PC** — as if you had bought a new drawing tablet. Windows sees a real pen; drawing apps get pressure, tilt and the side button. Free and open source.
+
+## See it in action
+
+<!-- Demo video: open this file in the GitHub web editor and drag divit-v6.mp4 onto the empty line below; GitHub uploads it and shows a player. -->
+
+<p align="center">
+  <img src="docs/media/divit-demo.gif" alt="Drawing on the tablet; the stroke appears on the PC at the same moment" width="720">
+</p>
 
 ## Features
 
