@@ -64,4 +64,4 @@ When the host starts it resets the header but **keeps consumer registrations** (
 
 ## Installation
 
-`wintab32.dll` (64-bit) → `C:\Windows\System32`, (32-bit) → `C:\Windows\SysWOW64`. Needs **administrator rights** once (the only exception to NFR-INST). The installer offers it as a checkbox; the settings window can repair or remove it (a separate helper process through UAC). Another `wintab32.dll` (Wacom etc.) is never overwritten; the user is told instead.
+`wintab32.dll` (64-bit) → `C:\Windows\System32`, (32-bit) → `C:\Windows\SysWOW64`. Needs **administrator rights** once (the only exception to NFR-INST). The installer offers it as a checkbox; the settings window can repair or remove it (a separate helper process through UAC). Another `wintab32.dll` (Wacom etc.) is never overwritten; the user is told instead. Uninstalling Divit removes the DLL from both folders only if it is still Divit's (checked by the marker export), whether the installer or the settings window put it there; if an app still has it loaded, it is deleted on the next restart. A file another driver has put there since is left alone.

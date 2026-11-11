@@ -78,8 +78,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#Staging}\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#Staging}\wintab\x64\wintab32.dll"; DestDir: "{sys}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{sys}\wintab32.dll')); Flags: restartreplace uninsrestartdelete 64bit
-Source: "{#Staging}\wintab\x86\wintab32.dll"; DestDir: "{syswow64}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{syswow64}\wintab32.dll')); Flags: restartreplace uninsrestartdelete 32bit
+; uninsneveruninstall: the uninstaller must not blindly delete these. RemoveOurWinTab ([Code]) removes them only if they are
+; still Divit's: another driver (Wacom etc.) may have replaced them since, and the settings window may have installed
+; them without this installer knowing.
+Source: "{#Staging}\wintab\x64\wintab32.dll"; DestDir: "{sys}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{sys}\wintab32.dll')); Flags: restartreplace uninsneveruninstall 64bit
+Source: "{#Staging}\wintab\x86\wintab32.dll"; DestDir: "{syswow64}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{syswow64}\wintab32.dll')); Flags: restartreplace uninsneveruninstall 32bit
 ; adb for USB mode, downloaded from Google over HTTPS and unpacked to {app}\platform-tools (Divit looks there).
 ; Pinned version + SHA-256, so every install gets the same, verified adb (size and SHA-1 match Google's
 ; repository2-3.xml listing). To update: change the version, size and hash together.
@@ -177,6 +180,18 @@ begin
   end;
 end;
 
+{ Removes a wintab32.dll only if it is Divit's (marker export). If an app still has it loaded, it is deleted on the
+  next restart. Another driver's file is never touched. }
+procedure RemoveOurWinTab(Path: String);
+var
+  Data: AnsiString;
+begin
+  if not FileExists(Path) then exit;
+  if not (LoadStringFromFile(Path, Data) and (Pos('DivitWinTabVersion', Data) > 0)) then exit;
+  if not DeleteFile(Path) then
+    RestartReplace(Path, '');
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   { Remove the per-user autostart value if the settings window created it. }
@@ -184,5 +199,11 @@ begin
   begin
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Divit');
     Netsh('delete rule name=all program="' + ExpandConstant('{app}\{#AppExe}') + '"');
+  end;
+  { After [UninstallRun] stopped Divit. Both locations, whether the installer or the settings window put them there. }
+  if CurUninstallStep = usPostUninstall then
+  begin
+    RemoveOurWinTab(ExpandConstant('{sys}\wintab32.dll'));
+    if IsWin64 then RemoveOurWinTab(ExpandConstant('{syswow64}\wintab32.dll'));
   end;
 end;
