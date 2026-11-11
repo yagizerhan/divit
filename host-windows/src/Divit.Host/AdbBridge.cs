@@ -87,8 +87,13 @@ public sealed class AdbBridge : IDisposable
             if (!ok) { SetState(State.NotRunning); return; }
             var lines = devOut.Split('\n').Skip(1).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
             var ready = lines.Where(l => l.EndsWith("\tdevice")).Select(l => l.Split('\t')[0]).ToList();
-            if (lines.Any(l => l.EndsWith("\tunauthorized"))) { SetState(State.Unauthorized); return; }
-            if (ready.Count == 0) { SetState(State.NoDevice); return; }
+            // Another device that has not allowed USB debugging (e.g. a phone charging on the same PC) must not keep the
+            // tablet from working: report "unauthorized" only when no device is usable at all.
+            if (ready.Count == 0)
+            {
+                SetState(lines.Any(l => l.EndsWith("\tunauthorized")) ? State.Unauthorized : State.NoDevice);
+                return;
+            }
 
             string rule = $"tcp:{_port} tcp:{_port}";
             lock (_keyed) _keyed.IntersectWith(ready);   // a re-plugged device gets the key again
