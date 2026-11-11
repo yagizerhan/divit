@@ -19,6 +19,7 @@ import io.github.yagizerhan.divit.DivitApp
 import io.github.yagizerhan.divit.R
 import io.github.yagizerhan.divit.net.LinkState
 import io.github.yagizerhan.divit.net.LinkStatus
+import io.github.yagizerhan.divit.net.PairPrompt
 import io.github.yagizerhan.divit.net.Reason
 
 data class StatusView(val colorRes: Int, val title: String, val detail: String)
@@ -84,7 +85,7 @@ fun ownIPv4(): List<String> =
 private var openDialog: AlertDialog? = null
 
 /** Asks for the 6-digit pairing code shown on the PC. Opens on whichever screen is in front. */
-fun Activity.askPairingCode(app: DivitApp, host: String, wrong: Boolean) {
+fun Activity.askPairingCode(app: DivitApp, host: String, prompt: PairPrompt) {
     openDialog?.dismiss()
     val pad = (24 * resources.displayMetrics.density).toInt()
     val input = EditText(this).apply {
@@ -99,7 +100,12 @@ fun Activity.askPairingCode(app: DivitApp, host: String, wrong: Boolean) {
         orientation = LinearLayout.VERTICAL
         setPadding(pad, pad / 2, pad, 0)
         addView(TextView(context).apply {
-            text = getString(if (wrong) R.string.pair_wrong else R.string.pair_info)
+            text = getString(when (prompt) {
+                PairPrompt.FIRST -> R.string.pair_info
+                PairPrompt.WRONG -> R.string.pair_wrong
+                PairPrompt.PAUSED -> R.string.pair_paused
+                PairPrompt.PC_FORGOT -> R.string.pair_pc_forgot
+            })
             textSize = 15f
         })
         addView(input)

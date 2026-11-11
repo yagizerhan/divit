@@ -132,7 +132,7 @@ class DivitApp : Application() {
     }
     /** UI listeners (called on the main thread). */
     var statusListener: ((LinkStatus) -> Unit)? = null
-    var pairingListener: ((host: String, wrong: Boolean) -> Unit)? = null
+    var pairingListener: ((host: String, prompt: io.github.yagizerhan.divit.net.PairPrompt) -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -157,17 +157,20 @@ class DivitApp : Application() {
                 if (s.state == io.github.yagizerhan.divit.net.LinkState.CONNECTED && prefs.wifi && s.hostName.isNotEmpty()) prefs.hostName = s.hostName
                 main.post { statusListener?.invoke(s) }
             },
-            askPairingCode = { h, wrong -> main.post { pairingListener?.invoke(h, wrong) ?: client.submitPairingCode(null) } },
+            askPairingCode = { h, prompt -> main.post { pairingListener?.invoke(h, prompt) ?: client.submitPairingCode(null) } },
             rediscover = { ep ->
                 // Search by PC ID first (so we do not switch to another PC with the same name); by name if the ID is unknown.
-                // The PC found still has to prove its identity on connect; an impostor cannot.
+                // The PC found still has to prove its identity on connect; an impostor cannot. Not saved here (see onConnected).
                 val id = prefs.expectedHostId
                 val name = prefs.hostName
                 if (id.isEmpty() && name.isEmpty()) null
                 else io.github.yagizerhan.divit.net.Discovery.find(1200).firstOrNull { if (id.isNotEmpty()) it.hostId == id else it.name == name }?.let { pc ->
-                    prefs.host = pc.address; prefs.port = pc.port
                     Endpoint(true, pc.address, pc.port)
                 }
+            },
+            // The PC proved itself at this address: now it is safe to remember it (a forged discovery reply cannot get here).
+            onConnected = { ep ->
+                if (ep.wifi && prefs.wifi && (prefs.host != ep.host || prefs.port != ep.port)) { prefs.host = ep.host; prefs.port = ep.port }
             },
         )
     }

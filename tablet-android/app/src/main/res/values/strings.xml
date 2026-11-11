@@ -59,9 +59,11 @@
     <string name="r_replaced">Another tablet connected to this PC. Tap to reconnect.</string>
     <string name="r_connection_lost">Connection lost (%1$s).</string>
     <string name="r_pairing_cancelled">Pairing cancelled.</string>
-    <string name="r_too_many_wrong">Pairing failed: too many wrong codes. Wait 30 seconds and try again.</string>
+    <string name="r_too_many_wrong">Pairing failed: too many wrong codes. Wait a little and try again.</string>
     <string name="pair_title">Pair with %1$s</string>
     <string name="pair_info">The code is shown in the Divit window on the PC (\"Wi-Fi and startup\"). It is asked only once for this PC.</string>
     <string name="pair_wrong">Wrong code. Enter the current code shown on the PC again.</string>
+    <string name="pair_paused">Too many wrong codes were tried, so the PC paused pairing for a while; even the right code is refused until then. Wait a little and try again.</string>
+    <string name="pair_pc_forgot">This PC says it no longer knows this tablet. That is expected if you cleared the pairings on the PC. If you did not, do not enter the code: another device may be imitating the PC.</string>
     <string name="pair_ok">Pair</string>
 </resources>

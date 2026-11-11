@@ -42,8 +42,8 @@
             android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- USB key (SPEC §3.2.1): only the adb shell can send it. The DUMP permission is never granted to ordinary
-             apps, so other apps on the tablet can neither write nor learn the key. -->
+        <!-- USB key (SPEC §3.2.1): only the adb shell can send it. Ordinary apps cannot request DUMP; only someone with
+             adb access could grant it (`pm grant`), and that person already controls the device. -->
         <receiver
             android:name=".net.UsbKeyReceiver"
             android:exported="true"

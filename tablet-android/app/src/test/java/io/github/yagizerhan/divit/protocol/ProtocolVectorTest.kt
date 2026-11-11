@@ -124,6 +124,10 @@ class ProtocolVectorTest {
         assertEquals(msg("pair_result_ok").getString("hostKey"), pr.hostKey.toHex())
         val prw = decodeFrame(hex("pair_result_wrong_code")) as Incoming.PairResult
         assertTrue(!prw.ok && prw.hostKey.isEmpty())
+        assertEquals(Wire.PAIR_WRONG_CODE, prw.reason)
+        assertEquals(Wire.PAIR_PAUSED, (decodeFrame(hex("pair_result_paused")) as Incoming.PairResult).reason)
+        // A minor-0 host sends no reason byte: read as "wrong code".
+        assertEquals(Wire.PAIR_WRONG_CODE, (decodeFrame(hex("pair_result_minor0_no_reason")) as Incoming.PairResult).reason)
 
         val pong = decodeFrame(hex("pong")) as Incoming.Pong
         assertEquals(Incoming.Pong(7, 123456789, -5000000000, -4999999990), pong)

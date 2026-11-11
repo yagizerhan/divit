@@ -61,11 +61,14 @@ public sealed class ServerTests : IDisposable
         }
 
         /// <summary>Wi-Fi pairing (ECDH). The derived key on success, otherwise null.</summary>
+        public PairFailure LastFailure;
+
         public byte[]? Pair(uint code)
         {
             using var ecdh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
             Send(new PairRequest(code, "tab", ecdh.ExportSubjectPublicKeyInfo()));
             var r = Expect<PairResult>();
+            LastFailure = r.Reason;
             if (!r.Ok) return null;
             using var peer = ECDiffieHellman.Create();
             peer.ImportSubjectPublicKeyInfo(r.HostKey, out _);
@@ -369,11 +372,107 @@ public sealed class ServerTests : IDisposable
         }
         Assert.True(srv.PairingLocked);
         Assert.Null(t!.Pair(123456));                             // even the right code waits during the pause
+        Assert.Equal(PairFailure.Paused, t.LastFailure);          // …and the tablet is told so (not "wrong code")
         Thread.Sleep(800);
         Assert.False(srv.PairingLocked);
         Assert.NotNull(t.Pair(123456));                           // same code, no new code needed
         Assert.Equal("123456", srv.PairingCode);
         t.Dispose();
+    }
+
+    /// <summary>10 wrong codes on as few connections as possible (3 per connection). Returns the last, still open one.</summary>
+    private static FakeTablet TenWrongCodes(PenServer srv)
+    {
+        int wrongLeft = 10;
+        FakeTablet? t = null;
+        while (wrongLeft > 0)
+        {
+            t?.Dispose();
+            t = new FakeTablet(srv.Port);
+            t.Hello();
+            for (int i = 0; i < 3 && wrongLeft > 0; i++, wrongLeft--) Assert.Null(t.Pair(654321));
+            if (wrongLeft > 0) Assert.True(t.WaitClosed(2000));
+        }
+        return t!;
+    }
+
+    [Fact]
+    public void RepeatedPausesGetLonger()
+    {
+        var srv = Server(wifi: true, code: "123456", cooldownMs: 300);
+        TenWrongCodes(srv).Dispose();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Eventually(() => !srv.PairingLocked, "first pause over", 2000);
+        long first = sw.ElapsedMilliseconds;
+
+        TenWrongCodes(srv).Dispose();                             // no successful pairing in between: twice as long
+        sw.Restart();
+        Eventually(() => !srv.PairingLocked, "second pause over", 3000);
+        Assert.True(sw.ElapsedMilliseconds > first + 150, $"second pause {sw.ElapsedMilliseconds} ms, first {first} ms");
+
+        using var ok = new FakeTablet(srv.Port);                  // a successful pairing starts over
+        ok.Hello();
+        Assert.NotNull(ok.Pair(123456));
+    }
+
+    [Fact]
+    public void WrongCurveKeyIsRejectedWithoutCountingAsAGuess()
+    {
+        var srv = Server(wifi: true, code: "123456");
+        using (var t = new FakeTablet(srv.Port))
+        {
+            t.Hello();
+            using var other = ECDiffieHellman.Create(ECCurve.NamedCurves.brainpoolP256r1);
+            t.Send(new PairRequest(123456, "x", other.ExportSubjectPublicKeyInfo()));
+            Assert.True(t.WaitClosed(2000));                      // only this connection is dropped…
+        }
+        Assert.Null(srv.Active);
+        using var good = new FakeTablet(srv.Port);                // …the server keeps working
+        good.Hello();
+        Assert.NotNull(good.Pair(123456));
+    }
+
+    [Fact]
+    public void ClientsThatResetRightAwayDoNotStopTheServer()
+    {
+        var srv = Server();
+        for (int i = 0; i < 50; i++)
+        {
+            var c = new Socket(SocketType.Stream, ProtocolType.Tcp) { LingerState = new LingerOption(true, 0) };   // close = RST
+            c.Connect(System.Net.IPAddress.Loopback, srv.Port);
+            c.Close();
+        }
+        using var t = new FakeTablet(srv.Port);
+        t.ConnectUsb(_id.UsbKey);
+        Eventually(() => srv.Active != null, "accepted after the resets");
+    }
+
+    [Fact]
+    public void StopReleasesThePenBeforeReturning()
+    {
+        // Program exit disposes the sinks right after Stop(): no session thread may still be writing to them.
+        var srv = Server();
+        using var t = new FakeTablet(srv.Port);
+        t.ConnectUsb(_id.UsbKey);
+        t.Batch(R, C);
+        Eventually(() => _sink.Out.Count >= 2, "contact");
+        srv.Stop();
+        Assert.Equal("Hover Down Up Leave", _sink.Trace);         // already released, no waiting
+        Assert.Null(srv.Active);
+    }
+
+    [Fact]
+    public void SettingsChangeSendsHostStatus()
+    {
+        var srv = Server();
+        using var t = new FakeTablet(srv.Port);
+        t.ConnectUsb(_id.UsbKey);
+        t.Expect<HostStatus>();                                   // the one sent on acceptance
+        srv.ApplySettings(a => new PipelineSettings(
+            new AreaMapping(new ScreenRect(0, 0, 1920, 1080), new NormRect(0.25f, 0.25f, 0.75f, 0.75f), a, false), new PressureCurve()), "DISPLAY9");
+        var hs = t.Expect<HostStatus>();
+        Assert.Equal("DISPLAY9", hs.MonitorName);
+        Assert.Equal(0.25f, hs.AreaLeft);
     }
 
     [Fact]

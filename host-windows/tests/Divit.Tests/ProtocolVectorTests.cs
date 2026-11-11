@@ -39,8 +39,9 @@ public class ProtocolVectorTests
         var msg = Codec.DecodeFrame(bytes);
         AssertFields(v.GetProperty("message"), msg);
 
-        // An unknown type and a message with trailing bytes cannot re-encode byte for byte (by design).
-        if (msg is not UnknownMessage && name != "ping_with_trailing_bytes")
+        // An unknown type, a message with trailing bytes and an older minor without a newer field cannot re-encode
+        // byte for byte (by design).
+        if (msg is not UnknownMessage && name is not ("ping_with_trailing_bytes" or "pair_result_minor0_no_reason"))
             Assert.Equal(Convert.ToHexString(bytes), Convert.ToHexString(Codec.Encode(msg)));
     }
 
@@ -121,7 +122,7 @@ public class ProtocolVectorTests
         (HelloAck a, "hostId") => a.HostId, (HelloAck a, "serverNonce") => a.ServerNonce, (HelloAck a, "hostProof") => a.HostProof,
         (AuthRequest a, "proof") => a.Proof, (AuthResult a, "ok") => a.Ok ? 1 : 0,
         (PairRequest r, "code") => r.Code, (PairRequest r, "deviceName") => r.DeviceName, (PairRequest r, "tabletKey") => r.TabletKey,
-        (PairResult r, "ok") => r.Ok ? 1 : 0, (PairResult r, "hostKey") => r.HostKey,
+        (PairResult r, "ok") => r.Ok ? 1 : 0, (PairResult r, "hostKey") => r.HostKey, (PairResult r, "reason") => (byte)r.Reason,
         (Ping p, "id") => p.Id, (Ping p, "t0") => p.T0,
         (Pong p, "id") => p.Id, (Pong p, "t0") => p.T0, (Pong p, "t1") => p.T1, (Pong p, "t2") => p.T2,
         (SurfaceInfo s, "widthPx") => s.WidthPx, (SurfaceInfo s, "heightPx") => s.HeightPx,
@@ -161,6 +162,24 @@ public class ProtocolVectorTests
     [Fact]
     public void PairAsHostRejectsGarbageKey() =>
         Assert.Equal(ProtocolError.Range, Assert.Throws<ProtocolException>(() => Auth.PairAsHost(new byte[] { 1, 2, 3 }, new byte[16], new byte[16])).Error);
+
+    [Fact]
+    public void PairAsHostRejectsAnother256BitCurve()
+    {
+        // brainpoolP256r1 has the same key size as P-256; it used to pass the size check and fail later inside ECDH.
+        using var other = System.Security.Cryptography.ECDiffieHellman.Create(System.Security.Cryptography.ECCurve.NamedCurves.brainpoolP256r1);
+        var ex = Assert.Throws<ProtocolException>(() => Auth.PairAsHost(other.ExportSubjectPublicKeyInfo(), new byte[16], new byte[16]));
+        Assert.Equal(ProtocolError.Range, ex.Error);
+    }
+
+    [Fact]
+    public void PairAsHostAcceptsP256()
+    {
+        using var tablet = System.Security.Cryptography.ECDiffieHellman.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var (hostKey, pairKey) = Auth.PairAsHost(tablet.ExportSubjectPublicKeyInfo(), new byte[16], new byte[16]);
+        Assert.Equal(91, hostKey.Length);
+        Assert.Equal(32, pairKey.Length);
+    }
 
     private static object SampleField(PenSample s, string name) => name switch
     {

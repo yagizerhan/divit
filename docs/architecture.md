@@ -161,12 +161,14 @@ See [wintab.md](wintab.md). In short: a C `wintab32.dll` placed in `System32`/`S
 | Threat | Mitigation |
 |---|---|
 | Someone on the LAN connects to the host and injects input | Wi-Fi listener off by default. Pairing code required, then HMAC challenge-response on every connection (the key never goes on the wire). Turning Wi-Fi off also blocks connections opened earlier and closes a connected Wi-Fi tablet; "Forget pairings" disconnects it too. |
-| Many or stuck connections before authentication | At most 4 at once; each must be accepted within 10 s (150 s while the user types the pairing code). They run at normal thread priority; only the accepted session's receive thread gets the highest priority. |
-| Another app on the tablet uses the `adb reverse` tunnel | USB is authenticated too: the USB key goes over adb only to Divit's `DUMP`-guarded receiver. No pairing over USB. |
+| Many or stuck connections before authentication | At most 4 at once per transport (USB and Wi-Fi counted separately, so Wi-Fi clients cannot lock out the USB tablet); each must be accepted within 10 s (150 s while the user types the pairing code). They run at normal thread priority; only the accepted session's receive thread gets the highest priority. |
+| Guessing the pairing code | 3 wrong codes per connection; after 10 in total pairing pauses for 30 s, and each further pause without a success in between is twice as long (up to 30 min). |
+| A device imitating a paired PC asks the tablet for the code | The tablet warns the user when a PC it holds a key for asks to pair again without proving itself. |
+| Another app on the tablet uses the `adb reverse` tunnel | USB is authenticated too: the USB key goes over adb only to Divit's `DUMP`-guarded receiver (only the adb shell and the system hold `DUMP`; an app could get it only through `adb shell pm grant`, i.e. from someone who already controls the device). No pairing over USB. |
 | A fake PC (same name/address, spoofed discovery) extracts secrets from the tablet | The PC proves itself first; the tablet remembers the expected `hostId` and sends nothing if the proof or ID does not match. Discovery looks the PC up by ID. |
 | Man-in-the-middle at the moment of pairing | **Not covered** (a 6-digit code is not enough). Pair on a trusted network. A passive eavesdropper cannot get the key thanks to ECDH. |
 | Eavesdropping on pen data | Not encrypted (authenticated only). Use Wi-Fi on trusted networks. |
-| Malformed packets | Length limits, range checks, NaN rejection; a bad frame drops the connection. |
+| Malformed packets | Length limits, range checks, NaN rejection; a bad frame drops the connection. Any unexpected error in a session closes that connection only (the pen is released), never the program. |
 | Fake / modified builds | Official builds with SHA-256 checksums from a single channel; name and logo policy ([TRADEMARKS.md](../TRADEMARKS.md)). |
 
 ## 9. Error handling

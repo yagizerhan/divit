@@ -58,9 +58,11 @@
     <string name="r_replaced">Başka bir tablet bu PC\'ye bağlandı. Yeniden bağlanmak için dokunun.</string>
     <string name="r_connection_lost">Bağlantı koptu (%1$s).</string>
     <string name="r_pairing_cancelled">Eşleştirme iptal edildi.</string>
-    <string name="r_too_many_wrong">Eşleştirme başarısız: çok fazla yanlış kod. 30 saniye bekleyip tekrar deneyin.</string>
+    <string name="r_too_many_wrong">Eşleştirme başarısız: çok fazla yanlış kod. Biraz bekleyip tekrar deneyin.</string>
     <string name="pair_title">%1$s ile eşleştir</string>
     <string name="pair_info">Kod, PC\'deki Divit penceresinde (\"Wi-Fi ve başlangıç\") yazar. Bu PC için yalnızca bir kez sorulur.</string>
     <string name="pair_wrong">Kod yanlış. PC\'deki güncel kodu tekrar girin.</string>
+    <string name="pair_paused">Çok fazla yanlış kod denendiği için PC eşleştirmeyi bir süre durdurdu; o zamana kadar doğru kod da reddedilir. Biraz bekleyip tekrar deneyin.</string>
+    <string name="pair_pc_forgot">Bu PC artık bu tableti tanımadığını söylüyor. PC\'de eşleştirmeleri sildiyseniz bu normaldir. Silmediyseniz kodu girmeyin: başka bir cihaz PC\'yi taklit ediyor olabilir.</string>
     <string name="pair_ok">Eşleştir</string>
 </resources>

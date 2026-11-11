@@ -99,7 +99,7 @@ class SettingsActivity : Activity() {
     override fun onResume() {
         super.onResume()
         app.statusListener = { renderStatus() }
-        app.pairingListener = { h, wrong -> askPairingCode(app, h, wrong) }
+        app.pairingListener = { h, prompt -> askPairingCode(app, h, prompt) }
         renderStatus()
         ui.post(ticker)
         if (app.prefs.wifi) search()

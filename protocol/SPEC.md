@@ -46,7 +46,7 @@ The first message. The host processes nothing else before answering with `HELLO_
 
 | Field | Type | Description |
 |---|---|---|
-| `minor` | u16 | Minor version (this document: 0) |
+| `minor` | u16 | Minor version (this document: 1) |
 | `transport` | u8 | 0 = USB, 1 = Wi-Fi (informational; the host decides by the connection's origin) |
 | `capabilities` | u8 | bit0 pressure · bit1 tilt · bit2 side button · bit3 hover · bit4 eraser tip |
 | `deviceId` | 16 bytes | Random ID created at install |
@@ -92,7 +92,7 @@ Labels are ASCII, `‖` is concatenation. Both nonces are fresh for every connec
 - The PC creates a permanent **USB key** (32 bytes) and its `hostId` (`%APPDATA%\Divit\identity.json`).
 - When the tablet is ready on USB, the PC sends the key over adb **only to Divit's receiver**:
   `adb shell am broadcast -a io.github.yagizerhan.divit.action.USB_KEY -n io.github.yagizerhan.divit/.net.UsbKeyReceiver -f 0x20 --es hostId <hex> --es key <hex>`
-- The receiver is guarded by `android.permission.DUMP`. The adb shell and the system hold this permission; apps installed from a store never get it. No other app can write or read the key. Once the receiver has stored the key it returns `RESULT_OK` (-1).
+- The receiver is guarded by `android.permission.DUMP` (protection level `signature|privileged|development`). The adb shell and the system hold it; an ordinary app cannot request it. The only way an app gets it is someone running `adb shell pm grant <app> android.permission.DUMP` — that person already controls the device over adb. So in practice no other app can write the key (the key is never readable by other apps either way). Once the receiver has stored the key it returns `RESULT_OK` (-1).
 - The tablet stores keys per `hostId` (several PCs are possible).
 - There is no pairing (`PAIR_REQUEST`) over USB; the host refuses it.
 
@@ -102,7 +102,7 @@ While Wi-Fi connections are allowed, the host shows a **6-digit** code. The code
 
 `PAIR_REQUEST`: `code:u32` (0–999 999) · `deviceName:str` · `tabletKey:bytes8`
 
-`PAIR_RESULT`: `ok:u8` (1 = success) · `hostKey:bytes8` (empty on failure)
+`PAIR_RESULT`: `ok:u8` (1 = success) · `hostKey:bytes8` (empty on failure) · `reason:u8` (minor 1; on failure: 0 = wrong code, 1 = pairing paused, 2 = Wi-Fi connections not allowed; ignored on success. A minor-0 host omits it: read as 0)
 
 `tabletKey` / `hostKey`: a **P-256** public key created anew for each pairing, as `SubjectPublicKeyInfo` (DER, 91 bytes). Both sides compute the ECDH shared secret (32 bytes, the x coordinate):
 
@@ -113,8 +113,10 @@ pairKey = HMAC-SHA256(ECDH shared secret, "DIVIT-PAIR1" ‖ deviceId ‖ hostId)
 - If the code is right, the host stores `pairKey` with the `deviceId` and treats the connection as **accepted** (no separate `AUTH`). The tablet stores `pairKey` with the `hostId` and remembers the `hostId` for this address.
 - The key never travels on the wire. An **eavesdropper** (passive attacker) who sees the code still cannot obtain the key.
 - **Known limit:** there is no protection against an active man-in-the-middle **at the moment of pairing**; a 6-digit code is not enough for that. Pair on a network you trust.
-- At most **3** wrong codes per connection, then the connection is closed. After 10 wrong attempts in total pairing pauses for **30 s** (even the right code is refused during the pause), then opens again with the same code.
-- A connection must be accepted (`AUTH_RESULT(1)` or `PAIR_RESULT(1)`) within **10 s**, or within **150 s** once the host is waiting for the pairing code; otherwise the host closes it. At most **4** connections may wait for acceptance at the same time; the host closes extra ones immediately.
+- The host checks `tabletKey` before the code: a key that is not a valid P-256 `SubjectPublicKeyInfo` drops the connection and does not count as a guess.
+- At most **3** wrong codes per connection, then the connection is closed. After 10 wrong attempts in total pairing pauses (even the right code is refused during the pause, `reason = 1`), then opens again with the same code. The first pause lasts **30 s**; each further pause without a successful pairing in between lasts twice as long, up to **30 min**. A successful pairing or a new code starts over.
+- If the tablet holds a key for this `hostId` but the host answers `HELLO_ACK(2)` (no proof), the tablet warns the user before asking for the code: this is expected after "Forget pairings" on the PC, but it is also what a device imitating the PC would do. The old key is kept until a new pairing succeeds.
+- A connection must be accepted (`AUTH_RESULT(1)` or `PAIR_RESULT(1)`) within **10 s**, or within **150 s** once the host is waiting for the pairing code; otherwise the host closes it. At most **4** connections per transport (USB and Wi-Fi counted separately) may wait for acceptance at the same time; the host closes extra ones immediately. Connections waiting on Wi-Fi therefore never block the USB tablet.
 - Pen data is not encrypted (authentication, not confidentiality).
 
 ### 3.4. `PING` / `PONG`
@@ -129,6 +131,8 @@ pairKey = HMAC-SHA256(ECDH shared secret, "DIVIT-PAIR1" ‖ deviceId ‖ hostId)
 ### 3.5. `SURFACE_INFO` (T → H)
 
 `widthPx:u32` · `heightPx:u32` · `widthMm:f32` · `heightMm:f32`
+
+`widthPx`, `heightPx` > 0; `widthMm`, `heightMm` in **1…10 000** (finite). Anything else drops the connection.
 
 Sent right after acceptance and whenever the drawing surface size changes. The host uses it to keep the aspect ratio.
 
@@ -217,5 +221,5 @@ Lets the tablet find the PC without typing an address. Independent of the TCP pr
 
 - The PC answers **only while Wi-Fi connections are allowed**. The reply carries only the PC name, ID and port; the pairing code or keys are never sent. Connecting still requires authentication (§3.2).
 - The tablet sends the request three times (0 / 300 / 600 ms) and collects replies for 1.5 s.
-- The tablet remembers the paired PC's `hostId`. If the saved address cannot be reached (e.g. the router assigned a new IP) it runs discovery and switches to the PC with the **same `hostId`** at its new address (by name if the ID is unknown). Discovery replies are not authenticated; an impostor claiming the same `hostId` still cannot produce the proof (§3.2) and the tablet sends it nothing secret.
+- The tablet remembers the paired PC's `hostId`. If the saved address cannot be reached (e.g. the router assigned a new IP) it runs discovery and switches to the PC with the **same `hostId`** at its new address (by name if the ID is unknown). Discovery replies are not authenticated; an impostor claiming the same `hostId` still cannot produce the proof (§3.2) and the tablet sends it nothing secret. The new address is saved only after the PC there has proved itself, so a forged reply cannot overwrite the saved address.
 - Requests longer than 64 bytes are ignored.

@@ -2,9 +2,10 @@
 // Copyright (C) 2026 Divit contributors
 // USB key receiver (protocol/SPEC.md §3.2.1). When the tablet is plugged in, the PC sends its key over adb:
 //   adb shell am broadcast -a io.github.yagizerhan.divit.action.USB_KEY -n io.github.yagizerhan.divit/.net.UsbKeyReceiver --es hostId <hex> --es key <hex>
-// Guarded by android.permission.DUMP in the manifest: the adb shell (and the system) hold it; apps installed from a
-// store never get it. So no other app on the tablet can write a fake key or learn the key, and none can inject input
-// into the PC through the adb reverse tunnel.
+// Guarded by android.permission.DUMP in the manifest: the adb shell (and the system) hold it; an ordinary app cannot
+// request it (only `adb shell pm grant` could give it, by someone who already controls the device). So in practice no
+// other app on the tablet can write a fake key (none can read it either), and none can inject input into the PC
+// through the adb reverse tunnel.
 
 package io.github.yagizerhan.divit.net
 

@@ -42,13 +42,39 @@ public static class Auth
     public static (byte[] HostPublicKey, byte[] PairKey) PairAsHost(byte[] tabletPublicKey, byte[] deviceId, byte[] hostId)
     {
         using var mine = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
-        using var peer = ECDiffieHellman.Create();
-        try { peer.ImportSubjectPublicKeyInfo(tabletPublicKey, out _); }
-        catch (CryptographicException) { throw new ProtocolException(ProtocolError.Range, "invalid tablet public key"); }
-        if (peer.KeySize != 256) throw new ProtocolException(ProtocolError.Range, "tablet public key is not P-256");
-        byte[] secret = mine.DeriveRawSecretAgreement(peer.PublicKey);
+        using var peer = ImportTabletKey(tabletPublicKey);
+        byte[] secret;
+        try { secret = mine.DeriveRawSecretAgreement(peer.PublicKey); }
+        catch (Exception e) when (e is CryptographicException or ArgumentException)
+        { throw new ProtocolException(ProtocolError.Range, "tablet public key cannot be used for ECDH"); }
         try { return (mine.ExportSubjectPublicKeyInfo(), PairKey(secret, deviceId, hostId)); }
         finally { CryptographicOperations.ZeroMemory(secret); }
+    }
+
+    /// <summary>Throws <see cref="ProtocolException"/> unless the key is a valid P-256 public key (SubjectPublicKeyInfo).</summary>
+    public static void CheckTabletKey(byte[] tabletPublicKey) { using var _ = ImportTabletKey(tabletPublicKey); }
+
+    private const string P256Oid = "1.2.840.10045.3.1.7";
+
+    private static ECDiffieHellman ImportTabletKey(byte[] spki)
+    {
+        var peer = ECDiffieHellman.Create();
+        try
+        {
+            peer.ImportSubjectPublicKeyInfo(spki, out int read);
+            if (read != spki.Length) throw new CryptographicException("trailing bytes");
+            // Key size alone is not enough: brainpoolP256r1 is 256 bits too, and ECDH across curves throws.
+            var curve = peer.ExportParameters(false).Curve;
+            bool p256 = curve.IsNamed && (curve.Oid.Value == P256Oid ||
+                        curve.Oid.FriendlyName is "nistP256" or "ECDH_P256" or "ECDSA_P256" or "secp256r1");
+            if (!p256) throw new CryptographicException("not P-256");
+            return peer;
+        }
+        catch (Exception e) when (e is CryptographicException or ArgumentException or PlatformNotSupportedException)
+        {
+            peer.Dispose();
+            throw new ProtocolException(ProtocolError.Range, $"invalid tablet public key ({e.Message})");
+        }
     }
 
     private static byte[] Concat(params byte[][] parts)

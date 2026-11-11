@@ -13,20 +13,27 @@ namespace Divit.Core.Server;
 
 public sealed record SessionInfo(string Model, TransportKind Transport, string Remote, DateTime Since);
 
+internal enum PairOutcome { Ok, WrongCode, Paused, WifiOff }
+
 public sealed class PenServer : IDisposable
 {
     private readonly IPenSink _sink;
     private readonly PairingStore _pairing;
     private readonly object _gate = new();
-    private Socket? _listener;
+    private volatile Socket? _listener;
     private DiscoveryResponder? _discovery;
     private Session? _active;
+    /// <summary>Every session whose receive thread is running (accepted or not); Stop() waits for them.</summary>
+    private readonly HashSet<Session> _sessions = new();
     // Written by the UI thread, read by the session threads: a reference swap of immutable values.
     private volatile Func<float, PipelineSettings> _settingsFactory;
     private volatile string _monitorName = "";
     private int _pairFailures;
+    /// <summary>Pauses in a row without a successful pairing: each one lasts twice as long (capped).</summary>
+    private int _pairLockouts;
     private long _pairBlockedUntilMs;
-    private int _unauthenticated;
+    // Separate budgets: connections waiting on Wi-Fi must never use up the slots of the USB tablet (and the other way round).
+    private int _unauthenticatedUsb, _unauthenticatedWifi;
 
     /// <param name="pairingCode">The saved pairing code (6 digits); null or invalid = create a new one (see <see cref="PairingCodeChanged"/>).</param>
     public PenServer(IPenSink sink, PairingStore pairing, Func<float, PipelineSettings> settingsFactory, HostIdentity? identity = null, string? pairingCode = null)
@@ -62,10 +69,13 @@ public sealed class PenServer : IDisposable
     public int ActiveDiscoveryPort => _discovery?.Port ?? 0;
     /// <summary>The fixed pairing code (SPEC §3.3). It stays the same until the user changes it.</summary>
     public string PairingCode { get; private set; } = "";
-    /// <summary>After 10 wrong codes pairing pauses for <see cref="PairingCooldown"/> (against guessing), then opens again.</summary>
+    /// <summary>After 10 wrong codes pairing pauses (against guessing), then opens again. The first pause lasts
+    /// <see cref="PairingCooldown"/>; each further one without a successful pairing in between lasts twice as long, up to
+    /// <see cref="MaxPairingCooldown"/>. A successful pairing or a new code starts over.</summary>
     public bool PairingLocked => Environment.TickCount64 < Interlocked.Read(ref _pairBlockedUntilMs);
     public TimeSpan PairingCooldown { get; init; } = TimeSpan.FromSeconds(30);
-    /// <summary>At most this many connections may be open before authentication; extra ones are closed at once.</summary>
+    public TimeSpan MaxPairingCooldown { get; init; } = TimeSpan.FromMinutes(30);
+    /// <summary>At most this many connections per transport (USB, Wi-Fi) may be open before authentication; extra ones are closed at once.</summary>
     public int MaxUnauthenticated { get; init; } = 4;
     /// <summary>Time to authenticate after connecting. While the user types the pairing code: <see cref="PairingTimeout"/>.</summary>
     public TimeSpan HandshakeTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -107,39 +117,81 @@ public sealed class PenServer : IDisposable
         StateChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Stops listening and closes every session, waiting for their receive threads. After this returns no session
+    /// thread touches the sink any more, so the platform may dispose it (program exit).
+    /// </summary>
     public void Stop()
     {
         StopListening();
-        Active?.Stop(ByeReason.Normal);
+        Session[] all;
+        lock (_gate) all = _sessions.ToArray();
+        // In parallel: each one may wait up to 2 s for a peer that does not close.
+        Task.WaitAll(all.Select(s => Task.Run(() => s.Stop(ByeReason.Normal, join: true))).ToArray());
     }
 
     private void StopListening()
     {
-        _listener?.Close();
-        _listener = null;
+        var l = _listener;
+        _listener = null;   // first, so the accept loop knows the close below is on purpose
+        l?.Close();
         _discovery?.Dispose();
         _discovery = null;
     }
 
     private void AcceptLoop(Socket l)
     {
+        int failures = 0;
         while (true)
         {
             Socket s;
-            try { s = l.Accept(); } catch { return; }
-            // No thread for connections beyond the limit (a stuck or misbehaving client cannot pile up threads).
-            if (Interlocked.Increment(ref _unauthenticated) > MaxUnauthenticated)
+            try { s = l.Accept(); failures = 0; }
+            catch (Exception e) when (e is SocketException or ObjectDisposedException or InvalidOperationException)
             {
-                Interlocked.Decrement(ref _unauthenticated);
-                Log.Info($"connection refused (too many unauthenticated): {s.RemoteEndPoint}");
-                try { s.Close(); } catch { }
+                if (!ReferenceEquals(_listener, l)) return;   // Stop()/Start() closed this listener
+                // A transient error (e.g. the client reset the connection before it was accepted) must not end the
+                // loop: the server would look alive but accept nothing until Divit is restarted.
+                if (++failures <= 5) Log.Info($"accept failed, retrying: {e.Message}");
+                Thread.Sleep(Math.Min(50 * failures, 1000));
                 continue;
             }
-            new Session(this, s).Start();
+            try { Admit(s); }
+            catch (Exception e)
+            {
+                // The client may already be gone (RemoteEndPoint throws on a reset socket): drop it, keep accepting.
+                Log.Info($"could not start a session: {e.Message}");
+                try { s.Close(); } catch { }
+            }
         }
     }
 
-    internal void AuthenticationDone() => Interlocked.Decrement(ref _unauthenticated);
+    private void Admit(Socket s)
+    {
+        bool usb = IsUsbEndpoint(s);
+        ref int counter = ref usb ? ref _unauthenticatedUsb : ref _unauthenticatedWifi;
+        // No thread for connections beyond the limit (a stuck or misbehaving client cannot pile up threads).
+        if (Interlocked.Increment(ref counter) > MaxUnauthenticated)
+        {
+            Interlocked.Decrement(ref counter);
+            Log.Info($"connection refused (too many unauthenticated {(usb ? "USB" : "Wi-Fi")}): {s.RemoteEndPoint}");
+            s.Close();
+            return;
+        }
+        Session session;
+        try { session = new Session(this, s, usb); }
+        catch { Interlocked.Decrement(ref counter); throw; }
+        lock (_gate) _sessions.Add(session);
+        session.Start();
+    }
+
+    /// <summary>A loopback connection is the USB tablet (adb reverse); everything else came over the network.</summary>
+    private bool IsUsbEndpoint(Socket s) => !TreatLoopbackAsWifi && s.RemoteEndPoint is IPEndPoint ep && IPAddress.IsLoopback(ep.Address);
+
+    internal void AuthenticationDone(bool usb)
+    {
+        if (usb) Interlocked.Decrement(ref _unauthenticatedUsb);
+        else Interlocked.Decrement(ref _unauthenticatedWifi);
+    }
 
     public static bool IsValidCode(string? code) => code is { Length: 6 } && code.All(char.IsAsciiDigit);
 
@@ -154,6 +206,7 @@ public sealed class PenServer : IDisposable
         {
             PairingCode = code;
             _pairFailures = 0;
+            _pairLockouts = 0;
             Interlocked.Exchange(ref _pairBlockedUntilMs, 0);
         }
         PairingCodeChanged?.Invoke(code);
@@ -182,23 +235,27 @@ public sealed class PenServer : IDisposable
     internal PipelineSettings MakeSettings(float surfaceAspect) => _settingsFactory(surfaceAspect);
     internal string MonitorName => _monitorName;
 
-    /// <summary>Is the code correct? Always false while Wi-Fi is off (including connections opened earlier). May be called by several sessions at once.</summary>
-    internal bool TryPair(uint code)
+    /// <summary>Is the code correct? Always refused while Wi-Fi is off (including connections opened earlier). May be called by several sessions at once.</summary>
+    internal PairOutcome TryPair(uint code)
     {
-        bool locked = false;
+        TimeSpan pause = default;
         lock (_gate)
         {
-            if (!WifiEnabled || PairingLocked) return false;
-            if (code.ToString("D6") == PairingCode) { _pairFailures = 0; return true; }   // the code stays the same
+            if (!WifiEnabled) return PairOutcome.WifiOff;
+            if (PairingLocked) return PairOutcome.Paused;
+            if (code.ToString("D6") == PairingCode) { _pairFailures = 0; _pairLockouts = 0; return PairOutcome.Ok; }   // the code stays the same
             if (++_pairFailures >= 10)
             {
                 _pairFailures = 0;
-                Interlocked.Exchange(ref _pairBlockedUntilMs, Environment.TickCount64 + (long)PairingCooldown.TotalMilliseconds);
-                locked = true;
+                // 30 s, 60 s, 2 min, … up to MaxPairingCooldown: guessing all codes would take years instead of weeks.
+                double ms = PairingCooldown.TotalMilliseconds * Math.Pow(2, Math.Min(_pairLockouts, 20));
+                pause = TimeSpan.FromMilliseconds(Math.Min(ms, Math.Max(MaxPairingCooldown.TotalMilliseconds, PairingCooldown.TotalMilliseconds)));
+                _pairLockouts++;
+                Interlocked.Exchange(ref _pairBlockedUntilMs, Environment.TickCount64 + (long)pause.TotalMilliseconds);
             }
         }
-        if (locked) { Log.Info($"pairing paused for {PairingCooldown.TotalSeconds:F0} s: 10 wrong codes"); StateChanged?.Invoke(); }
-        return false;
+        if (pause > TimeSpan.Zero) { Log.Info($"pairing paused for {pause.TotalSeconds:F0} s: 10 wrong codes"); StateChanged?.Invoke(); }
+        return PairOutcome.WrongCode;
     }
 
     /// <summary>The accepted session becomes active; the previous one is stopped and its thread awaited
@@ -213,7 +270,11 @@ public sealed class PenServer : IDisposable
 
     internal void Ended(Session s)
     {
-        lock (_gate) if (_active == s) _active = null;
+        lock (_gate)
+        {
+            if (_active == s) _active = null;
+            _sessions.Remove(s);
+        }
         StateChanged?.Invoke();
     }
 
@@ -250,13 +311,13 @@ public sealed class Session
     public SessionInfo? Info { get; private set; }
     public bool IsUsb => _isUsb;
 
-    internal Session(PenServer server, Socket s)
+    internal Session(PenServer server, Socket s, bool usb)
     {
         _server = server; _s = s;
         _s.NoDelay = true;
         _s.ReceiveTimeout = DeadAfterMs;  // no frame for 1 s = connection dead (SPEC §3.4)
         _s.SendTimeout = DeadAfterMs;
-        _isUsb = !server.TreatLoopbackAsWifi && s.RemoteEndPoint is IPEndPoint ep && IPAddress.IsLoopback(ep.Address);
+        _isUsb = usb;
         _deadlineMs = Environment.TickCount64 + (long)server.HandshakeTimeout.TotalMilliseconds;
     }
 
@@ -278,14 +339,23 @@ public sealed class Session
     {
         if (!_countedUnauthenticated) return;
         _countedUnauthenticated = false;
-        _server.AuthenticationDone();
+        _server.AuthenticationDone(_isUsb);
     }
 
     /// <summary>
     /// Graceful close: BYE + shut down the send direction, wait for the peer to close. An immediate Close() makes Windows
     /// send RST and the connection drops before the tablet can read the BYE in its buffer.
+    /// Called from another thread without <paramref name="join"/> (the UI: Wi-Fi off, forget pairings) it runs in the
+    /// background, so a stalled network can never freeze the window for the 1 s send timeout. On the session's own
+    /// receive thread it stays synchronous: nothing more may be sent or accepted after the BYE.
     /// </summary>
     internal void Stop(ByeReason reason, bool join = false)
+    {
+        if (!join && Thread.CurrentThread != _rx) { Task.Run(() => StopNow(reason, false)); return; }
+        StopNow(reason, join);
+    }
+
+    private void StopNow(ByeReason reason, bool join)
     {
         try { Send(new Bye(reason)); } catch { }
         try { _s.Shutdown(SocketShutdown.Send); } catch { }
@@ -333,10 +403,18 @@ public sealed class Session
             Log.Info($"connection closed: {remote} — {why}");
             if (e is ProtocolException) try { Send(new Bye(ByeReason.ProtocolError)); } catch { }
         }
+        catch (Exception e)
+        {
+            // A bug or an input nobody thought of must cost this connection only. Unhandled, it would end the whole
+            // process (the tray app disappears) with no chance to release the pen.
+            Log.Info($"connection closed: {remote} — unexpected error: {e}");
+            try { Send(new Bye(ByeReason.ProtocolError)); } catch { }
+        }
         finally
         {
             _pinger?.Dispose();
-            Pipeline?.ReleaseAll();   // CN-03: the pen never stays pressed
+            try { Pipeline?.ReleaseAll(); }   // CN-03: the pen never stays pressed
+            catch (Exception e) { Log.Info($"releasing the pen failed: {e.Message}"); }
             if (Pipeline != null)
             {
                 var pl = Pipeline;
@@ -408,20 +486,31 @@ public sealed class Session
 
             case PairRequest pr when !_accepted:
                 if (_isUsb) throw new ProtocolException(ProtocolError.Range, "no pairing over USB (the key comes via adb)");
-                if (_server.TryPair(pr.Code))
                 {
-                    var (hostKey, pairKey) = Auth.PairAsHost(pr.TabletKey, _hello.DeviceId, _server.Identity.HostId);
-                    _server.Pairing.Add(_hello.DeviceId, pr.DeviceName, pairKey);
-                    Send(new PairResult(true, hostKey));
-                    Log.Info($"paired: {pr.DeviceName}");
-                    Accept();
+                    // Check the key before the code: a malformed key must not count as a guess or reach ECDH.
+                    Auth.CheckTabletKey(pr.TabletKey);
+                    var outcome = _server.TryPair(pr.Code);
+                    if (outcome == PairOutcome.Ok)
+                    {
+                        var (hostKey, pairKey) = Auth.PairAsHost(pr.TabletKey, _hello.DeviceId, _server.Identity.HostId);
+                        _server.Pairing.Add(_hello.DeviceId, pr.DeviceName, pairKey);
+                        Send(new PairResult(true, hostKey));
+                        Log.Info($"paired: {pr.DeviceName}");
+                        Accept();
+                    }
+                    else
+                    {
+                        // The reason lets the tablet say "paused, wait" instead of "wrong code" when the code was right.
+                        Send(new PairResult(false, [], outcome switch
+                        {
+                            PairOutcome.Paused => PairFailure.Paused,
+                            PairOutcome.WifiOff => PairFailure.WifiOff,
+                            _ => PairFailure.WrongCode,
+                        }));
+                        if (++_pairAttempts >= 3) { Stop(ByeReason.PairingFailed); }
+                    }
+                    break;
                 }
-                else
-                {
-                    Send(new PairResult(false, []));
-                    if (++_pairAttempts >= 3) { Stop(ByeReason.PairingFailed); }
-                }
-                break;
 
             case Ping p:
                 Send(new Pong(p.Id, p.T0, nowUs, MonoClock.NowUs()));
@@ -458,17 +547,31 @@ public sealed class Session
         Log.Info($"accepted: {_hello!.Model} ({(_isUsb ? "USB" : "Wi-Fi")})");
     }
 
+    /// <summary>
+    /// New settings (monitor, area, curve; or a new surface size). The pipeline switches at once; HOST_STATUS is sent by
+    /// the heartbeat timer thread, woken immediately, because the caller may be the UI thread and a blocking socket write
+    /// there could freeze the window for up to the 1 s send timeout.
+    /// </summary>
     internal void OnSettingsChanged()
     {
-        if (Pipeline == null) return;
-        Pipeline.UpdateSettings(_server.MakeSettings(_surfaceAspect));
-        SendHostStatus();
+        var p = Pipeline;
+        if (p == null) return;
+        p.UpdateSettings(_server.MakeSettings(_surfaceAspect));
+        Volatile.Write(ref _statusDirty, 1);
+        try { _pinger?.Change(0, HeartbeatMs); } catch (ObjectDisposedException) { }
     }
+
+    private int _statusDirty;
 
     private void SendHostStatus()
     {
-        var a = Pipeline!.Settings.Mapping.EffectiveArea;
-        try { Send(new HostStatus(_server.MonitorName, a.Left, a.Top, a.Right, a.Bottom)); } catch { }
+        try { lock (_sendLock) SendLocked(HostStatusFrame(Pipeline!)); } catch { }
+    }
+
+    private byte[] HostStatusFrame(PenPipeline p)
+    {
+        var a = p.Settings.Mapping.EffectiveArea;
+        return Codec.Encode(new HostStatus(_server.MonitorName, a.Left, a.Top, a.Right, a.Bottom));
     }
 
     private void StartHeartbeat()
@@ -482,6 +585,8 @@ public sealed class Session
                     _pingId++;
                     _lastPingT0 = MonoClock.NowUs();
                     SendLocked(Codec.Encode(new Ping(_pingId, _lastPingT0)));
+                    // Settings are read under the send lock, so of two quick changes the later one is always sent last.
+                    if (Interlocked.Exchange(ref _statusDirty, 0) == 1 && Pipeline is { } p) SendLocked(HostStatusFrame(p));
                 }
             }
             catch { /* the receive thread will notice the disconnect anyway */ }

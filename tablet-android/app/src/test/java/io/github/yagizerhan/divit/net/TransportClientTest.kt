@@ -39,6 +39,8 @@ class TransportClientTest {
     private class FakePc(
         private val byeReplacedAfterAck: Boolean = false,
         private val forgeProof: Boolean = false,
+        /** Answer HELLO_ACK(2) "pairing required" without any proof (what an impostor of a paired PC would do). */
+        private val pairingRequired: Boolean = false,
     ) : AutoCloseable {
         val server = ServerSocket(0, 16, InetAddress.getLoopbackAddress())
         val accepted = AtomicInteger()
@@ -80,7 +82,7 @@ class TransportClientTest {
                 val proof = if (forgeProof) ByteArray(32) { 0x55 } else Auth.hostProof(KEY, deviceId, HOST_ID, clientNonce, serverNonce)
                 val name = "PC".toByteArray()
                 frame(out, 0x0002, ByteBuffer.allocate(4 + name.size + 64).order(ByteOrder.LITTLE_ENDIAN)
-                    .put(0).putShort(0).put(name.size.toByte()).put(name).put(HOST_ID).put(serverNonce).put(proof).array())
+                    .put(if (pairingRequired) 2 else 0).putShort(0).put(name.size.toByte()).put(name).put(HOST_ID).put(serverNonce).put(proof).array())
                 val (type, auth) = readFrame(inp)
                 if (type != 0x0005) return
                 authReceived.incrementAndGet()
@@ -137,7 +139,14 @@ class TransportClientTest {
 
     private val id = Id()
     private val statuses = CopyOnWriteArrayList<LinkStatus>()
-    private val client = TransportClient(SampleRing(), id, onStatus = { statuses += it }, askPairingCode = { _, _ -> })
+    private val prompts = CopyOnWriteArrayList<PairPrompt>()
+    private val connectedAt = CopyOnWriteArrayList<Endpoint>()
+    private lateinit var client: TransportClient
+    init {
+        client = TransportClient(SampleRing(), id, onStatus = { statuses += it },
+            askPairingCode = { _, p -> prompts += p; client.submitPairingCode(null) },   // the user cancels
+            onConnected = { connectedAt += it })
+    }
 
     @After fun tearDown() { client.stop() }
 
@@ -163,6 +172,37 @@ class TransportClientTest {
             val before = pc.accepted.get()
             Thread.sleep(1200)
             assertEquals("the connection must not drop and re-establish itself", before, pc.accepted.get())
+        }
+    }
+
+    @Test fun onConnectedReportsTheEndpointOnlyAfterAuthentication() {
+        FakePc().use { pc ->
+            pc.acceptLoop()
+            val ep = Endpoint(wifi = false, host = "127.0.0.1", port = pc.port)
+            client.start(ep)
+            eventually("connected") { client.status.state == LinkState.CONNECTED }
+            assertEquals(listOf(ep), connectedAt.toList())
+        }
+        FakePc(forgeProof = true).use { pc ->
+            pc.acceptLoop()
+            client.stop(); connectedAt.clear()
+            client.start(Endpoint(wifi = false, host = "127.0.0.1", port = pc.port))
+            eventually("refused") { client.status.reason == Reason.USB_KEY_MISMATCH }
+            assertTrue("an unproven PC must not be reported", connectedAt.isEmpty())
+        }
+    }
+
+    @Test fun pairedPcAskingToPairAgainWarnsTheUser() {
+        // We hold a key for this PC, yet it asks for the pairing code without proving itself: legitimate after
+        // "Forget pairings" on the PC, but also what an impostor would do. The dialog must carry the warning.
+        id.expectedHostId = "30".repeat(16)
+        FakePc(pairingRequired = true).use { pc ->
+            pc.acceptLoop()
+            client.start(Endpoint(wifi = true, host = "127.0.0.1", port = pc.port))
+            eventually("asked for the code") { prompts.isNotEmpty() }
+            assertEquals(PairPrompt.PC_FORGOT, prompts.first())
+            eventually("cancelled") { client.status.reason == Reason.PAIRING_CANCELLED }
+            assertEquals("no proof is sent to an unproven PC", 0, pc.authReceived.get())
         }
     }
 

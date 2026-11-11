@@ -69,11 +69,15 @@ public sealed record PairRequest(uint Code, string DeviceName, byte[] TabletKey)
     internal override void WritePayload(ref SpanWriter w) { w.U32(Code); w.Str(DeviceName); w.Bytes8(TabletKey); }
 }
 
+/// <summary>Why pairing failed (PAIR_RESULT, minor 1). Older hosts send no reason: read as <see cref="WrongCode"/>.</summary>
+public enum PairFailure : byte { WrongCode = 0, Paused = 1, WifiOff = 2 }
+
 /// <param name="HostKey">On success the PC's ephemeral P-256 public key; empty on failure.</param>
-public sealed record PairResult(bool Ok, byte[] HostKey) : Message
+/// <param name="Reason">On failure: why (minor 1). Ignored on success.</param>
+public sealed record PairResult(bool Ok, byte[] HostKey, PairFailure Reason = PairFailure.WrongCode) : Message
 {
     public override MessageType Type => MessageType.PairResult;
-    internal override void WritePayload(ref SpanWriter w) { w.U8(Ok ? (byte)1 : (byte)0); w.Bytes8(HostKey); }
+    internal override void WritePayload(ref SpanWriter w) { w.U8(Ok ? (byte)1 : (byte)0); w.Bytes8(HostKey); w.U8((byte)Reason); }
 }
 
 public sealed record Ping(uint Id, long T0) : Message
@@ -144,7 +148,11 @@ public static class Codec
                     return new PairRequest(code, r.Str(), r.Bytes8());
                 }
             case MessageType.PairResult:
-                return new PairResult(r.U8() == 1, r.Bytes8());
+                {
+                    bool ok = r.U8() == 1;
+                    byte[] key = r.Bytes8();
+                    return new PairResult(ok, key, r.Remaining > 0 ? (PairFailure)r.U8() : PairFailure.WrongCode);
+                }
             case MessageType.Ping:
                 return new Ping(r.U32(), r.I64());
             case MessageType.Pong:
@@ -152,7 +160,9 @@ public static class Codec
             case MessageType.SurfaceInfo:
                 {
                     var m = new SurfaceInfo(r.U32(), r.U32(), r.F32(), r.F32());
-                    if (m.WidthPx == 0 || m.HeightPx == 0 || !(m.WidthMm > 0) || !(m.HeightMm > 0))
+                    // 1…10 000 mm: keeps the aspect ratio finite and sane (∞ or a 0-wide area would break the mapping).
+                    static bool Mm(float v) => v is >= Wire.MinSurfaceMm and <= Wire.MaxSurfaceMm;
+                    if (m.WidthPx == 0 || m.HeightPx == 0 || !Mm(m.WidthMm) || !Mm(m.HeightMm))
                         throw new ProtocolException(ProtocolError.Range, "invalid surface size");
                     return m;
                 }

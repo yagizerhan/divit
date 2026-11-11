@@ -108,13 +108,17 @@ S = {
     "r_replaced": ("Another tablet connected to this PC. Tap to reconnect.", "Başka bir tablet bu PC'ye bağlandı. Yeniden bağlanmak için dokunun."),
     "r_connection_lost": ("Connection lost (%1$s).", "Bağlantı koptu (%1$s)."),
     "r_pairing_cancelled": ("Pairing cancelled.", "Eşleştirme iptal edildi."),
-    "r_too_many_wrong": ("Pairing failed: too many wrong codes. Wait 30 seconds and try again.", "Eşleştirme başarısız: çok fazla yanlış kod. 30 saniye bekleyip tekrar deneyin."),
+    "r_too_many_wrong": ("Pairing failed: too many wrong codes. Wait a little and try again.", "Eşleştirme başarısız: çok fazla yanlış kod. Biraz bekleyip tekrar deneyin."),
 
     # Pairing dialog
     "pair_title": ("Pair with %1$s", "%1$s ile eşleştir"),
     "pair_info": ("The code is shown in the Divit window on the PC (\"Wi-Fi and startup\"). It is asked only once for this PC.",
                   "Kod, PC'deki Divit penceresinde (\"Wi-Fi ve başlangıç\") yazar. Bu PC için yalnızca bir kez sorulur."),
     "pair_wrong": ("Wrong code. Enter the current code shown on the PC again.", "Kod yanlış. PC'deki güncel kodu tekrar girin."),
+    "pair_paused": ("Too many wrong codes were tried, so the PC paused pairing for a while; even the right code is refused until then. Wait a little and try again.",
+                    "Çok fazla yanlış kod denendiği için PC eşleştirmeyi bir süre durdurdu; o zamana kadar doğru kod da reddedilir. Biraz bekleyip tekrar deneyin."),
+    "pair_pc_forgot": ("This PC says it no longer knows this tablet. That is expected if you cleared the pairings on the PC. If you did not, do not enter the code: another device may be imitating the PC.",
+                       "Bu PC artık bu tableti tanımadığını söylüyor. PC'de eşleştirmeleri sildiyseniz bu normaldir. Silmediyseniz kodu girmeyin: başka bir cihaz PC'yi taklit ediyor olabilir."),
     "pair_ok": ("Pair", "Eşleştir"),
 }
 

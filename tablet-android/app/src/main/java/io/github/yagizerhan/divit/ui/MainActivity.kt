@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         window.attributes = window.attributes.apply { screenBrightness = app.prefs.brightness }
 
         app.statusListener = { s -> link = s; surface.area = s.area; render() }
-        app.pairingListener = { h, wrong -> askPairingCode(app, h, wrong) }
+        app.pairingListener = { h, prompt -> askPairingCode(app, h, prompt) }
         link = app.client.status
         surface.area = link.area
 

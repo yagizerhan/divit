@@ -48,6 +48,21 @@ interface Identity {
 
 enum class LinkState { DISCONNECTED, CONNECTING, PAIRING, CONNECTED }
 
+/** What the pairing dialog says above the code field. */
+enum class PairPrompt {
+    /** First pairing with this PC. */
+    FIRST,
+    /** The previous code was wrong. */
+    WRONG,
+    /** The PC paused pairing after too many wrong codes; even the right code is refused for now. */
+    PAUSED,
+    /**
+     * We hold a key for this PC, but it says it does not know us. Legitimate after "Forget pairings" on the PC, but it is
+     * also exactly what a device imitating the PC (same name and ID) would do to learn the code: warn the user.
+     */
+    PC_FORGOT,
+}
+
 /** Why the link is in its state. The UI maps each value to a localized message (UiCommon.describe). */
 enum class Reason {
     NONE,
@@ -85,9 +100,17 @@ class TransportClient(
     private val identity: Identity,
     private val onStatus: (LinkStatus) -> Unit,
     /** Ask the UI for the pairing code. Called on the TX thread; waits at most 2 minutes. */
-    private val askPairingCode: (hostName: String, wrong: Boolean) -> Unit,
-    /** Wi-Fi: if the saved address is unreachable, find the PC again by ID/name (SPEC §7). Null if not found. Called on the TX thread. */
+    private val askPairingCode: (hostName: String, prompt: PairPrompt) -> Unit,
+    /**
+     * Wi-Fi: if the saved address is unreachable, find the PC again by ID/name (SPEC §7). Null if not found. Called on
+     * the TX thread. The address is not trusted yet: it is only used for the next attempt (see [onConnected]).
+     */
     private val rediscover: ((Endpoint) -> Endpoint?)? = null,
+    /**
+     * The PC at this endpoint proved itself (authenticated or freshly paired). Only now may a rediscovered address be
+     * saved: an unauthenticated discovery reply must not overwrite the saved address. Called on the TX thread.
+     */
+    private val onConnected: ((Endpoint) -> Unit)? = null,
 ) {
     companion object {
         const val HEARTBEAT_MS = 250L
@@ -268,7 +291,9 @@ class TransportClient(
                         }
                         // We have no key: on USB the PC notices and resends it over adb; on Wi-Fi we go on to pairing.
                         m.result == Wire.ACK_AUTHENTICATE || !ep.wifi -> send(out, w, w.auth(ByteArray(Auth.PROOF)))
-                        else -> if (pair(r, out, inp, w, rbuf, host, hostId, invalidKey = false)) break@handshake else return
+                        // Wi-Fi, pairing required. If we hold a key for this PC the user is warned (PC_FORGOT); the key is
+                        // kept until a new pairing succeeds, so cancelling leaves everything as it was.
+                        else -> if (pair(r, out, inp, w, rbuf, host, hostId, invalidKey = key != null, unverified = key != null)) break@handshake else return
                     }
                 }
                 is Incoming.AuthResult -> {
@@ -279,7 +304,8 @@ class TransportClient(
                     if (!ep.wifi) throw LinkException(Reason.USB_KEY_PENDING)
                     // Wi-Fi: the PC did not recognize our key (its pairings may have been cleared): pair again.
                     identity.forgetPairKey(hostId)
-                    if (pair(r, out, inp, w, rbuf, host, hostId, invalidKey = true)) break@handshake else return
+                    // Here the PC did prove itself with our key (hostProof), so it is the real PC: no warning needed.
+                    if (pair(r, out, inp, w, rbuf, host, hostId, invalidKey = true, unverified = false)) break@handshake else return
                 }
                 is Incoming.Bye -> throw LinkException(Reason.PC_CLOSED, "BYE ${m.reason}")
                 else -> Unit
@@ -288,6 +314,7 @@ class TransportClient(
 
         ring.clear()                // stale samples gathered while disconnected are not sent
         surfaceDirty = true
+        onConnected?.invoke(ep)
         publish(r, LinkStatus(LinkState.CONNECTED, detail = if (ep.wifi) "Wi-Fi" else "USB", hostName = host))
         r.established = true
 
@@ -355,12 +382,17 @@ class TransportClient(
      * Wi-Fi pairing (SPEC §3.3): the user enters the code shown on the PC and both sides derive a common key with
      * ECDH (P-256). The key never goes on the wire, so a passive eavesdropper cannot get it.
      */
-    private fun pair(r: Run, out: OutputStream, inp: InputStream, w: FrameWriter, rbuf: ByteArray, host: String, hostId: ByteArray, invalidKey: Boolean): Boolean {
+    /**
+     * @param invalidKey our key for this PC no longer works (shown in the status).
+     * @param unverified the PC asked for pairing without proving itself, although we hold a key for it: warn the user.
+     */
+    private fun pair(r: Run, out: OutputStream, inp: InputStream, w: FrameWriter, rbuf: ByteArray, host: String, hostId: ByteArray,
+                     invalidKey: Boolean, unverified: Boolean): Boolean {
         publish(r, LinkStatus(LinkState.PAIRING, if (invalidKey) Reason.PAIRING_INVALID else Reason.NONE, hostName = host))
-        var wrong = false
+        var prompt = if (unverified) PairPrompt.PC_FORGOT else PairPrompt.FIRST
         while (r.active) {
             pairingCodes.clear()   // an answer left over from an earlier question must not leak into this one
-            askPairingCode(host, wrong)
+            askPairingCode(host, prompt)
             // Keep the connection alive while the user types: answer the host's PINGs (read only when a full frame is
             // there, so a read is never cut in half) and send our own PING (the host drops us after 1 s of silence).
             var code: Long? = null
@@ -386,7 +418,9 @@ class TransportClient(
                             identity.expectedHostId = hex(hostId)
                             return true
                         }
-                        wrong = true; break
+                        if (m.reason == Wire.PAIR_WIFI_OFF) throw LinkException(Reason.WIFI_NOT_ALLOWED)
+                        prompt = if (m.reason == Wire.PAIR_PAUSED) PairPrompt.PAUSED else PairPrompt.WRONG
+                        break
                     }
                     is Incoming.Bye -> throw LinkException(Reason.TOO_MANY_WRONG_CODES)
                     else -> Unit

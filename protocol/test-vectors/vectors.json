@@ -4,10 +4,10 @@
     {
       "name": "hello_usb",
       "valid": true,
-      "hex": "01000100340000000000000f000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0f73616d73756e6720534d2d58363130",
+      "hex": "01000100340000000100000f000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0f73616d73756e6720534d2d58363130",
       "message": {
         "type": "HELLO",
-        "minor": 0,
+        "minor": 1,
         "transport": 0,
         "capabilities": 15,
         "deviceId": "000102030405060708090a0b0c0d0e0f",
@@ -75,21 +75,45 @@
     {
       "name": "pair_result_ok",
       "valid": true,
-      "hex": "010004005d000000015b3059301306072a8648ce3d020106082a8648ce3d03010703420004d65a93977caa3d1b081852ff57a79e465f1660577304baead505dd3a48589cf350185e895372df6221ea3a137557e473fddb6755f05bd507c3c533fce9c91285",
+      "hex": "010004005e000000015b3059301306072a8648ce3d020106082a8648ce3d03010703420004d65a93977caa3d1b081852ff57a79e465f1660577304baead505dd3a48589cf350185e895372df6221ea3a137557e473fddb6755f05bd507c3c533fce9c9128500",
       "message": {
         "type": "PAIR_RESULT",
         "ok": 1,
-        "hostKey": "3059301306072a8648ce3d020106082a8648ce3d03010703420004d65a93977caa3d1b081852ff57a79e465f1660577304baead505dd3a48589cf350185e895372df6221ea3a137557e473fddb6755f05bd507c3c533fce9c91285"
+        "hostKey": "3059301306072a8648ce3d020106082a8648ce3d03010703420004d65a93977caa3d1b081852ff57a79e465f1660577304baead505dd3a48589cf350185e895372df6221ea3a137557e473fddb6755f05bd507c3c533fce9c91285",
+        "reason": 0
       }
     },
     {
       "name": "pair_result_wrong_code",
       "valid": true,
+      "hex": "0100040003000000000000",
+      "message": {
+        "type": "PAIR_RESULT",
+        "ok": 0,
+        "hostKey": "",
+        "reason": 0
+      }
+    },
+    {
+      "name": "pair_result_paused",
+      "valid": true,
+      "hex": "0100040003000000000001",
+      "message": {
+        "type": "PAIR_RESULT",
+        "ok": 0,
+        "hostKey": "",
+        "reason": 1
+      }
+    },
+    {
+      "name": "pair_result_minor0_no_reason",
+      "valid": true,
       "hex": "01000400020000000000",
       "message": {
         "type": "PAIR_RESULT",
         "ok": 0,
-        "hostKey": ""
+        "hostKey": "",
+        "reason": 0
       }
     },
     {
@@ -272,6 +296,18 @@
       "valid": false,
       "hex": "010002002900000000000005455248414e303132333435363738393a3b3c3d3e3f202122232425262728292a2b2c2d2e2f",
       "error": "length"
+    },
+    {
+      "name": "surface_info_infinite_mm",
+      "valid": false,
+      "hex": "0100200010000000000a0000400600000000807f33b32e43",
+      "error": "range"
+    },
+    {
+      "name": "surface_info_too_small_mm",
+      "valid": false,
+      "hex": "0100200010000000000a00004006000000c08b430000003f",
+      "error": "range"
     }
   ],
   "crypto": {

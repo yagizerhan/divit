@@ -9,7 +9,8 @@ namespace Divit.Protocol;
 public static class Wire
 {
     public const byte Version = 1;
-    public const ushort Minor = 0;
+    /// <summary>1: PAIR_RESULT carries a failure reason (SPEC §3.3).</summary>
+    public const ushort Minor = 1;
     public const int HeaderSize = 8;
     public const int MaxPayload = 65_536;
     public const int PenSampleSize = 32;
@@ -17,6 +18,8 @@ public static class Wire
     public const int DefaultPort = 47470;
     /// <summary>Edge tolerance: u, v ∈ [−0.01, 1.01] are accepted (SPEC §3.6).</summary>
     public const float EdgeTolerance = 0.01f;
+    /// <summary>SURFACE_INFO size limits in mm (SPEC §3.5).</summary>
+    public const float MinSurfaceMm = 1f, MaxSurfaceMm = 10_000f;
 }
 
 public enum Channel : byte { Control = 0, Pen = 1 }
@@ -74,6 +77,8 @@ public ref struct SpanReader(ReadOnlySpan<byte> data)
     private int _pos;
 
     public int Position => _pos;
+    /// <summary>Bytes not read yet (optional fields added at the end in a later minor version, SPEC §6).</summary>
+    public int Remaining => _data.Length - _pos;
 
     private ReadOnlySpan<byte> Take(int n)
     {

@@ -9,7 +9,8 @@ import java.nio.ByteOrder
 
 object Wire {
     const val VERSION = 1
-    const val MINOR = 0
+    /** 1: PAIR_RESULT carries a failure reason (SPEC §3.3). */
+    const val MINOR = 1
     const val HEADER = 8
     const val MAX_PAYLOAD = 65_536
     const val SAMPLE = 32
@@ -53,6 +54,12 @@ object Wire {
     /** The PC has no key for this device (Wi-Fi: pairing required). */
     const val ACK_PAIRING_REQUIRED = 2
 
+    // PAIR_RESULT.reason (minor 1; a minor-0 host sends none = wrong code)
+    const val PAIR_WRONG_CODE = 0
+    /** Too many wrong codes: pairing is paused on the PC (even the right code is refused for now). */
+    const val PAIR_PAUSED = 1
+    const val PAIR_WIFI_OFF = 2
+
     // BYE.reason
     const val BYE_NORMAL = 0
     const val BYE_PROTOCOL = 1
@@ -69,8 +76,8 @@ sealed interface Incoming {
     class HelloAck(val result: Int, val minor: Int, val hostName: String,
                    val hostId: ByteArray, val serverNonce: ByteArray, val hostProof: ByteArray) : Incoming
     data class AuthResult(val ok: Boolean) : Incoming
-    /** [hostKey]: on success the PC's ephemeral P-256 public key (SubjectPublicKeyInfo), otherwise empty. */
-    class PairResult(val ok: Boolean, val hostKey: ByteArray) : Incoming
+    /** [hostKey]: on success the PC's ephemeral P-256 public key (SubjectPublicKeyInfo), otherwise empty. [reason]: Wire.PAIR_*. */
+    class PairResult(val ok: Boolean, val hostKey: ByteArray, val reason: Int = Wire.PAIR_WRONG_CODE) : Incoming
     data class Ping(val id: Long, val t0: Long) : Incoming
     data class Pong(val id: Long, val t0: Long, val t1: Long, val t2: Long) : Incoming
     data class HostStatus(val monitorName: String, val left: Float, val top: Float, val right: Float, val bottom: Float) : Incoming
@@ -102,7 +109,11 @@ object Decoder {
             Wire.HELLO_ACK -> Incoming.HelloAck(p.get().toInt() and 0xFF, p.short.toInt() and 0xFFFF, str(p),
                 bytes(p, Auth.ID), bytes(p, Auth.NONCE), bytes(p, Auth.PROOF))
             Wire.AUTH_RESULT -> Incoming.AuthResult((p.get().toInt() and 0xFF) == 1)
-            Wire.PAIR_RESULT -> Incoming.PairResult((p.get().toInt() and 0xFF) == 1, bytes(p, p.get().toInt() and 0xFF))
+            Wire.PAIR_RESULT -> {
+                val ok = (p.get().toInt() and 0xFF) == 1
+                val key = bytes(p, p.get().toInt() and 0xFF)
+                Incoming.PairResult(ok, key, if (p.hasRemaining()) p.get().toInt() and 0xFF else Wire.PAIR_WRONG_CODE)
+            }
             Wire.PING -> Incoming.Ping(p.int.toLong() and 0xFFFFFFFFL, p.long)
             Wire.PONG -> Incoming.Pong(p.int.toLong() and 0xFFFFFFFFL, p.long, p.long, p.long)
             Wire.HOST_STATUS -> Incoming.HostStatus(str(p), p.float, p.float, p.float, p.float)

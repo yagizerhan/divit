@@ -59,8 +59,8 @@ def bad(name, raw, error):
     vectors.append({"name": name, "valid": False, "hex": raw.hex(), "error": error})
 
 ok("hello_usb", 0, 0x0001,
-   struct.pack('<HBB', 0, 0, 0b01111) + DEV + CNONCE + s("samsung SM-X610"),
-   {"type": "HELLO", "minor": 0, "transport": 0, "capabilities": 15, "deviceId": DEV.hex(), "clientNonce": CNONCE.hex(), "model": "samsung SM-X610"})
+   struct.pack('<HBB', 1, 0, 0b01111) + DEV + CNONCE + s("samsung SM-X610"),
+   {"type": "HELLO", "minor": 1, "transport": 0, "capabilities": 15, "deviceId": DEV.hex(), "clientNonce": CNONCE.hex(), "model": "samsung SM-X610"})
 
 ok("hello_ack_authenticate", 0, 0x0002, struct.pack('<BH', 0, 0) + s("ERHAN") + HOSTID + SNONCE + HPROOF,
    {"type": "HELLO_ACK", "result": 0, "minor": 0, "hostName": "ERHAN", "hostId": HOSTID.hex(), "serverNonce": SNONCE.hex(), "hostProof": HPROOF.hex()})
@@ -75,11 +75,19 @@ ok("auth_result_ok", 0, 0x0006, struct.pack('<B', 1), {"type": "AUTH_RESULT", "o
 ok("pair_request", 0, 0x0003, struct.pack('<I', 482913) + s("Tab S9 FE+") + b8(T_SPKI),
    {"type": "PAIR_REQUEST", "code": 482913, "deviceName": "Tab S9 FE+", "tabletKey": T_SPKI.hex()})
 
-ok("pair_result_ok", 0, 0x0004, struct.pack('<B', 1) + b8(H_SPKI),
-   {"type": "PAIR_RESULT", "ok": 1, "hostKey": H_SPKI.hex()})
+# Minor 1: PAIR_RESULT ends with reason:u8 (0 wrong code, 1 paused, 2 Wi-Fi off). Ignored on success.
+ok("pair_result_ok", 0, 0x0004, struct.pack('<B', 1) + b8(H_SPKI) + struct.pack('<B', 0),
+   {"type": "PAIR_RESULT", "ok": 1, "hostKey": H_SPKI.hex(), "reason": 0})
 
-ok("pair_result_wrong_code", 0, 0x0004, struct.pack('<BB', 0, 0),
-   {"type": "PAIR_RESULT", "ok": 0, "hostKey": ""})
+ok("pair_result_wrong_code", 0, 0x0004, struct.pack('<BBB', 0, 0, 0),
+   {"type": "PAIR_RESULT", "ok": 0, "hostKey": "", "reason": 0})
+
+ok("pair_result_paused", 0, 0x0004, struct.pack('<BBB', 0, 0, 1),
+   {"type": "PAIR_RESULT", "ok": 0, "hostKey": "", "reason": 1})
+
+# A minor-0 host sends no reason: read as "wrong code" (decode only; it re-encodes with the reason byte).
+ok("pair_result_minor0_no_reason", 0, 0x0004, struct.pack('<BB', 0, 0),
+   {"type": "PAIR_RESULT", "ok": 0, "hostKey": "", "reason": 0})
 
 ok("ping", 0, 0x0010, struct.pack('<Iq', 7, 123456789),
    {"type": "PING", "id": 7, "t0": 123456789})
@@ -124,6 +132,8 @@ bad("pen_batch_contact_without_range", frame(1, 0x0030, struct.pack('<HH', 1, 0)
 bad("frame_too_large", struct.pack('<BBHI', 1, 0, 0x0010, 65537), "length")
 bad("string_overrun", frame(0, 0x0002, struct.pack('<BH', 0, 0) + struct.pack('<B', 10) + b'abc'), "length")
 bad("hello_ack_missing_proof", frame(0, 0x0002, struct.pack('<BH', 0, 0) + s("ERHAN") + HOSTID + SNONCE), "length")
+bad("surface_info_infinite_mm", frame(0, 0x0020, struct.pack('<IIff', 2560, 1600, float('inf'), 174.7)), "range")
+bad("surface_info_too_small_mm", frame(0, 0x0020, struct.pack('<IIff', 2560, 1600, 279.5, 0.5)), "range")
 
 # Cryptography (SPEC §3.2–3.3): C# and Kotlin must produce the same values.
 crypto = {
