@@ -29,8 +29,8 @@ android {
         applicationId = "io.github.yagizerhan.divit"
         minSdk = 30          // Android 11: requestUnbufferedDispatch (low-latency pen input). Tested on Android 13+ (Tab S9 FE+).
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.9.2"
+        versionCode = 5
+        versionName = "0.9.3"
     }
 
     buildTypes {

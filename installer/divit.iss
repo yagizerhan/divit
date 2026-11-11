@@ -2,7 +2,7 @@
 ; Copyright (C) 2026 Divit contributors
 ;
 ; Divit Windows installer (Inno Setup 6). Build with installer\build.ps1, which publishes the app into
-; installer\staging first. Manual build: ISCC.exe /DAppVersion=0.9.2 installer\divit.iss
+; installer\staging first. Manual build: ISCC.exe /DAppVersion=0.9.3 installer\divit.iss
 ;
 ; - Per-machine install into Program Files (administrator, one UAC prompt).
 ; - English / Turkish (the language of the setup wizard follows Windows; the user can pick).
@@ -11,7 +11,7 @@
 ; - Divit is started as the normal (non-elevated) user after setup.
 
 #ifndef AppVersion
-  #define AppVersion "0.9.2"
+  #define AppVersion "0.9.3"
 #endif
 #define AppName "Divit"
 #define AppExe "Divit.exe"

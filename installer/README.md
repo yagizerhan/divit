@@ -7,7 +7,7 @@
 3. the installer `installer/Output/DivitSetup-<version>.exe` plus its SHA-256 checksum.
 
 ```bash
-powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.9.2
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.9.3
 ```
 
 Requirements: .NET 10 SDK, Visual Studio with "Desktop development with C++", Inno Setup 6.
