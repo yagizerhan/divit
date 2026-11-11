@@ -51,8 +51,25 @@ public sealed class HostSettings
     public static HostSettings Load()
     {
         if (!File.Exists(FilePath)) return new() { IsFirstRun = true };
-        try { return JsonSerializer.Deserialize<HostSettings>(File.ReadAllText(FilePath)) ?? new(); }
-        catch { return new(); }
+        HostSettings s;
+        try { s = JsonSerializer.Deserialize<HostSettings>(File.ReadAllText(FilePath)) ?? new(); }
+        catch { s = new(); }
+        s.Normalize();
+        return s;
+    }
+
+    /// <summary>
+    /// A hand-edited or corrupt file must not reach the pen path or the UI: NaN, a 0-wide area, an inverted pressure range
+    /// or an invalid port are replaced with valid values (the curve editor and the area preview read these too).
+    /// </summary>
+    private void Normalize()
+    {
+        var c = PressureCurve.Safe(PressureMin, PressureMax, PressureGamma);
+        (PressureMin, PressureMax, PressureGamma) = (c.PMin, c.PMax, c.Gamma);
+        var a = AreaMapping.Sanitize(ActiveArea);
+        (AreaLeft, AreaTop, AreaRight, AreaBottom) = (a.Left, a.Top, a.Right, a.Bottom);
+        if (!float.IsFinite(SurfaceAspect) || SurfaceAspect is <= 0.5f or >= 3f) SurfaceAspect = 16f / 10;
+        if (Port is < 1024 or > 65535) Port = Divit.Protocol.Wire.DefaultPort;
     }
 
     public void Save()

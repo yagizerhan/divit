@@ -326,4 +326,32 @@ public class CoreTests
         Assert.Equal(1050, h.Percentile(95));
         Assert.Equal(9050, h.Percentile(99));
     }
+
+    [Theory]
+    [InlineData(0.5f, 0.2f, 0.5f, 0.8f)]              // 0 wide
+    [InlineData(0.8f, 0.2f, 0.2f, 0.8f)]              // inverted
+    [InlineData(float.NaN, 0f, 1f, 1f)]
+    [InlineData(0f, 0f, float.PositiveInfinity, 1f)]
+    public void BrokenActiveAreaFallsBackToFullSurface(float l, float t, float r, float b)
+    {
+        var m = new AreaMapping(new ScreenRect(0, 0, 1920, 1080), new NormRect(l, t, r, b), 16f / 10, keepAspect: false);
+        Assert.Equal(NormRect.Full, m.EffectiveArea);
+        var (x, y) = m.Map(0.5f, 0.5f);
+        Assert.Equal((960, 540), (x, y));                 // finite pixels, no NaN
+    }
+
+    [Fact]
+    public void ActiveAreaIsClampedToTheSurface()
+    {
+        var m = new AreaMapping(new ScreenRect(0, 0, 100, 100), new NormRect(-0.5f, 0.1f, 1.5f, 0.9f), 1f, keepAspect: false);
+        Assert.Equal(new NormRect(0f, 0.1f, 1f, 0.9f), m.EffectiveArea);
+    }
+
+    [Fact]
+    public void BrokenPressureCurveBecomesValid()
+    {
+        Assert.Equal(new PressureCurve(), PressureCurve.Safe(float.NaN, float.NaN, float.NaN));
+        Assert.Equal(new PressureCurve(), PressureCurve.Safe(0.8f, 0.2f, 1f));          // inverted range → defaults
+        Assert.Equal(new PressureCurve(0.1f, 1f, 10f), PressureCurve.Safe(0.1f, 3f, 99f));
+    }
 }

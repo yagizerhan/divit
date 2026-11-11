@@ -26,6 +26,17 @@ public sealed record PressureCurve(float PMin = 0f, float PMax = 0.70f, float Ga
 {
     public const uint WindowsMax = 1024;
 
+    /// <summary>Values from a hand-edited or corrupt settings file: NaN/∞ or out of range → the defaults / the valid range.</summary>
+    public static PressureCurve Safe(float pMin, float pMax, float gamma)
+    {
+        var d = new PressureCurve();
+        float lo = float.IsFinite(pMin) ? Math.Clamp(pMin, 0f, 1f) : d.PMin;
+        float hi = float.IsFinite(pMax) ? Math.Clamp(pMax, 0f, 1f) : d.PMax;
+        if (hi <= lo) (lo, hi) = (d.PMin, d.PMax);
+        float g = float.IsFinite(gamma) ? Math.Clamp(gamma, 0.1f, 10f) : d.Gamma;
+        return new PressureCurve(lo, hi, g);
+    }
+
     /// <summary>Curve-mapped pressure, 0…1 (full resolution; for WinTab).</summary>
     public float MapF(float p)
     {
@@ -52,10 +63,14 @@ public sealed class AreaMapping
     /// <summary>The part of the tablet actually used after cropping (reported to the tablet via HOST_STATUS).</summary>
     public NormRect EffectiveArea { get; }
 
+    /// <summary>Narrowest usable active area (fraction of the tablet). Anything smaller, or not finite, means the full surface.</summary>
+    public const float MinAreaSize = 0.05f;
+
     public AreaMapping(ScreenRect target, NormRect activeArea, float surfaceAspect, bool keepAspect)
     {
         Target = target;
-        var a = activeArea;
+        var a = Sanitize(activeArea);
+        if (!float.IsFinite(surfaceAspect)) surfaceAspect = 0;
         if (keepAspect && surfaceAspect > 0 && target.Height > 0 && a.Width > 0 && a.Height > 0)
         {
             float areaAspect = a.Width * surfaceAspect / a.Height;   // physical aspect ratio
@@ -72,6 +87,17 @@ public sealed class AreaMapping
             }
         }
         EffectiveArea = a;
+    }
+
+    /// <summary>
+    /// A hand-edited or corrupt settings file must not reach the hot path: a 0-wide area divides by zero in
+    /// <see cref="MapNorm"/> (NaN coordinates). Edges are clamped to 0…1; a too small or inverted area becomes the full surface.
+    /// </summary>
+    public static NormRect Sanitize(NormRect r)
+    {
+        if (!(float.IsFinite(r.Left) && float.IsFinite(r.Top) && float.IsFinite(r.Right) && float.IsFinite(r.Bottom))) return NormRect.Full;
+        var c = new NormRect(Math.Clamp(r.Left, 0f, 1f), Math.Clamp(r.Top, 0f, 1f), Math.Clamp(r.Right, 0f, 1f), Math.Clamp(r.Bottom, 0f, 1f));
+        return c.Width >= MinAreaSize && c.Height >= MinAreaSize ? c : NormRect.Full;
     }
 
     /// <summary>u, v → 0…1 within the target monitor. Values outside the area are clamped to the edge.</summary>
