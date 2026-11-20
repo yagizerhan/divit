@@ -1,22 +1,41 @@
+<div align="center">
+
+<a href="https://divit.yagizerhan.dev">
+  <img src="docs/brand/divit-icon-rounded.svg" alt="Divit logo" width="112" height="112" />
+</a>
+
 # Divit
 
-<p align="center">
-  <img src="docs/media/divit-banner.png" alt="Divit: a Galaxy Tab and S Pen beside a Windows monitor showing a pen drawing" width="100%">
+**Turn your Samsung Galaxy Tab and S Pen into a pressure-sensitive graphics tablet for Windows.**
+
+Windows sees a real pen — pressure, tilt, hover and the side button over USB or Wi-Fi. Free and open source.
+
+<p>
+  <a href="https://divit.yagizerhan.dev"><img alt="Website" src="https://img.shields.io/badge/website-divit.yagizerhan.dev-3D6FD8?style=flat-square" /></a>
+  <a href="https://github.com/yagizerhan/divit/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/yagizerhan/divit?style=flat-square&color=3D6FD8" /></a>
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-1F2A44?style=flat-square" /></a>
+  <img alt="Windows 11" src="https://img.shields.io/badge/Windows-11-0078D4?style=flat-square" />
+  <img alt="Android 11+" src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=flat-square&logo=android&logoColor=black" />
+  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet&logoColor=white" />
+  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-Android-7F52FF?style=flat-square&logo=kotlin&logoColor=white" />
 </p>
 
-Use your **Samsung Galaxy Tab and S Pen as a pressure-sensitive graphics tablet for your Windows PC** — as if you had bought a new drawing tablet. Windows sees a real pen; drawing apps get pressure, tilt and the side button. Free and open source.
-
-## See it in action
-
-
-https://github.com/user-attachments/assets/c7612f8c-8e01-46a6-bbe4-b27897d975e3
-
-
-<!-- Demo video: open this file in the GitHub web editor and drag divit-v6.mp4 onto the empty line below; GitHub uploads it and shows a player. -->
-
-<p align="center">
-  <img src="docs/media/divit-demo.gif" alt="Drawing on the tablet; the stroke appears on the PC at the same moment" width="720">
+<p>
+  <a href="#features">Features</a> ·
+  <a href="#requirements">Requirements</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#building-from-source">Building</a> ·
+  <a href="#documentation">Docs</a> ·
+  <a href="#license">License</a>
 </p>
+
+<br />
+
+<img src="docs/media/showcase.png" alt="Divit on Windows and Galaxy Tab" width="860" />
+
+</div>
+
+---
 
 ## Features
 
@@ -47,7 +66,7 @@ https://github.com/user-attachments/assets/c7612f8c-8e01-46a6-bbe4-b27897d975e3
    3. Connect the tablet to the PC with a USB data cable and accept **"Allow USB debugging?"** (tick *Always allow from this computer*).
 
    From then on just plug in the cable; the PC sets up the connection by itself.
-4. **Wi-Fi:** on the PC turn on *Allow Wi-Fi connections*, then pick the PC on the tablet and enter the 6-digit code shown on the PC (only the first time).
+4. **Wi-Fi:** pick the PC on the tablet (Wi-Fi is on by default on the PC) and enter the 6-digit code shown on the PC (only the first time).
 5. Draw. In Krita, either install WinTab support (installer checkbox / settings window) or choose *Settings → Configure Krita → Tablet settings → Windows 8+ Pointer Input*.
 
 ## Building from source
