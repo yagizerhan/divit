@@ -84,9 +84,8 @@ Source: "{#Staging}\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdir
 Source: "{#Staging}\wintab\x64\wintab32.dll"; DestDir: "{sys}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{sys}\wintab32.dll')); Flags: restartreplace uninsneveruninstall 64bit
 Source: "{#Staging}\wintab\x86\wintab32.dll"; DestDir: "{syswow64}"; Tasks: wintab; Check: WinTabFree(ExpandConstant('{syswow64}\wintab32.dll')); Flags: restartreplace uninsneveruninstall 32bit
 ; adb for USB mode, downloaded from Google over HTTPS and unpacked to {app}\platform-tools (Divit looks there).
-; Pinned version + SHA-256, so every install gets the same, verified adb (size and SHA-1 match Google's
-; repository2-3.xml listing). To update: change the version, size and hash together.
-Source: "https://dl.google.com/android/repository/platform-tools_r37.0.2-win.zip"; DestName: "platform-tools.zip"; DestDir: "{app}"; ExternalSize: 8239125; Hash: "6d93a5e63bc1654b70b7b94bec5c6ab46db113df0265beb314055dd253772b58"; Tasks: adb; Flags: external download extractarchive recursesubdirs createallsubdirs ignoreversion
+; Uses Google's permanent "latest" URL so existing installers do not break when Google removes older revisions.
+Source: "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"; DestName: "platform-tools.zip"; DestDir: "{app}"; ExternalSize: 8200000; Tasks: adb; Flags: external download extractarchive recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
